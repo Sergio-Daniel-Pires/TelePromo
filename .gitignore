@@ -1,0 +1,5 @@
+*.jsonc
+*.pyc
+___pycache__
+*.tlp
+db/*
