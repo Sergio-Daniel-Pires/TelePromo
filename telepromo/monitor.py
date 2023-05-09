@@ -3,6 +3,8 @@ import logging
 import datetime
 import json
 
+from models import Product, Sent
+
 class Monitoring(object):
     """
     Class to monitoring sites in url
@@ -48,31 +50,26 @@ class Monitoring(object):
 
             product_obj = self.database.find_product(category, tags)
             if product_obj is None:
-                self.database.new_product(category, {
-                    'raw_name': name,
-                    'tags': tags,
-                    'price': price,
-                    'sents': []
-                })
+                self.database.new_product(category, Product(name, tags, price).__dict__)
 
             # New product
             product_obj = self.database.find_product(category, tags)
             all_sents = product_obj['sents']
             today = datetime.datetime.utcnow()
             new_sent = None
+            all_wishes = None
             if (is_promo or (all_sents == []) or all_sents[-1]['price'] > price):# or (all_sents[-1]['date'] - today == 1)):
-                new_sent = {
-                    'date': str(today),
-                    'price': price,
-                    'is_promo': is_promo,
-                    'url': ''
-                }
-            self.database.update_product(category, tags, price, new_sent)
+                new_sent = Sent(date=str(today), price=price, is_promo=is_promo, url="").__dict__
 
-            all_wishes = self.database.find_all_wishes(tags)
-            for wish_list in all_wishes:
-                for name in wish_list['users']:
-                    logging.warning(f"Usuario {name}, olha essa oferta de '{' '.join(tags)}'!\n{json.dumps(new_sent, indent=4)}")
+                self.database.update_product(category, tags, price, new_sent)
+                all_wishes = self.database.find_all_wishes(tags)
+            
+            if new_sent is not None and all_wishes is not None:
+                for wish_list in all_wishes:
+                    for name in wish_list['users']:
+                        logging.warning(f"Usuario {name}, olha essa oferta de '{' '.join(tags)}'!\n{json.dumps(new_sent, indent=4)}")
+            else:
+                logging.warning("N eh oferta boa/nova ou ninguem quer")
 
     def get_urls(self):
         return self.database.get_links

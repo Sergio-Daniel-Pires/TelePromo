@@ -1,15 +1,15 @@
 from pymongo import MongoClient
-from bots import LINKS
 
-from typing import Union
+from bots import LINKS
+from models import Wished
 
 class Database(object):
     """
     A class to manage connection with python and mongoDB
     """
 
-    cleint = object
-    database = object
+    client = MongoClient
+    database = dict
 
     def __init__(self):
         self.client = MongoClient("mongodb", 27017)
@@ -23,10 +23,6 @@ class Database(object):
     def get_links(self):
         links = self.database['links'].find({})
         return links
-    
-    def save_product(self, category: str, product: dict):
-        self.database[category].insert_one(product)
-        return True
 
     def find_product(self, category: str, tags: list):
         product = self.database[category].find_one({"tags": {"$all": tags}})
@@ -44,13 +40,9 @@ class Database(object):
     def new_wish(self, tags: list, category: str, user: str, links: list = []):        
         wish_obj = self.find_wish(tags)
         if wish_obj is None:
-            self.database['wishes'].insert_one({
-                'tags': tags,
-                'category': category,
-                'num_wishs': 0,
-                "links": links,
-                "users": []
-            })
+            self.database['wishes'].insert_one(
+                Wished(tags, category, links=links).__dict__
+            )
         wish_obj = self.find_wish(tags)
         if user in wish_obj['users']:
             return False
