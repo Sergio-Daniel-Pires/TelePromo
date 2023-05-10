@@ -1,15 +1,5 @@
 import pickle
-import re
-
-def normalize_str(text: str) -> str:
-    text = text.lower()
-    text = re.sub(r'[ãâáàä]', 'a', text)
-    text = re.sub(r'[êéèë]', 'e', text)
-    text = re.sub(r'[îíìï]', 'i', text)
-    text = re.sub(r'[õôóòö]', 'o', text)
-    text = re.sub(r'[ûúùü]', 'u', text)
-    text = re.sub(r',\s+|\.\s+|\s-\s', ' ', text)
-    return text
+from utils import normalize_str
 
 class Vectorizers(object):
     eletronic_model: object
