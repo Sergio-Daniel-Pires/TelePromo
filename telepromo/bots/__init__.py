@@ -12,7 +12,9 @@ LINKS = [
         "links": [
             {
                 "name": "Kabum",
-                "link": "https://www.kabum.com.br/ofertas/megamaio?pagina=53"
+                "link": "https://www.kabum.com.br/ofertas/megamaio",
+                "repeat": "60",
+                "last":  "2023-05-11 00:30:03.354898"
             },
             {
                 "name": "Terabyte",
@@ -61,24 +63,24 @@ LINKS = [
     }
 ]
 
-from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
 from abc import abstractmethod, ABC
 
 class Bot(ABC):
     browser: object
 
-    def run(self, **kwargs):
+    async def run(self, **kwargs):
         #self.browser = playwright.chromium.launch(headless=True)
         #self.context = self.browser.new_context()
-        with sync_playwright() as playwright:
+        async with async_playwright() as playwright:
             self.browser = playwright.chromium.launch(headless=True)
 
-            result = self.get_prices(**kwargs)
+            result = await self.get_prices(**kwargs)
 
             self.browser.close()
         
         return result
 
     @abstractmethod
-    def get_prices(self):
+    async def get_prices(self):
         ...

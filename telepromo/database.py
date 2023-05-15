@@ -37,11 +37,16 @@ class Database(object):
             self.database[category].update_one({"tags": {"$all": tags}}, {"$push": {"sents": new_sent}})
 
     # Wish Funcs
-    def new_wish(self, tags: list, category: str, user: str, links: list = []):        
+    #def new_wish(self):        
+    def new_wish(self, **kwargs):
+        tags = kwargs.get('tags')
+        #category = kwargs.get('category')
+        #links = kwargs.get('links')
+        user = kwargs.get('user')
         wish_obj = self.find_wish(tags)
         if wish_obj is None:
             self.database['wishes'].insert_one(
-                Wished(tags, category, links=links).__dict__
+                Wished(**kwargs).__dict__
             )
         wish_obj = self.find_wish(tags)
         if user in wish_obj['users']:

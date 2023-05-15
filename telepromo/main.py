@@ -1,26 +1,45 @@
 from database import Database
 from monitor import Monitoring
 from vectorizers import Vectorizers
-import re
-from nltk.util import ngrams
+#from telegram_bot import TelegramBot
 
-def main():
+import asyncio
+from threading import Thread
+
+async def verify_urls_price(monitor, current_obj):
+    url_list = current_obj['links']
+    results = await monitor.prices_from_url(url_list)
+    new_prices = monitor.verify_save_prices(results)
+    return new_prices
+
+async def continuos_verify_price(db: Database, monitor: Monitoring):
+    semaphore = asyncio.Semaphore(4)
+    while True:
+        tasks = []
+        links_cursor = db.get_links()
+        for current_obj in links_cursor:
+            async with semaphore:
+                tasks.append(asyncio.ensure_future(verify_urls_price(monitor, current_obj)))
+        results = await asyncio.gather(*tasks)
+        print(results) 
+        break
+
+async def main():
     db = Database()
     vectorizers = Vectorizers()
+    #telegram_bot = TelegramBot()
     monitor = Monitoring(
         retry = 3,
         database = db,
         vectorizer = vectorizers
     )
-    db.new_wish(['computador'], 'eletronic', 'Sergio')
-    db.new_wish(['Fone de ouvido'], 'eletronic', 'Walter')
-    db.new_wish(['Monitor gamer'], 'eletronic', 'Andreias')
-    db.new_wish(['Smartphone samsung'], 'eletronic', 'WalterS')
-    links_cursor = db.get_links()
-    for current_obj in links_cursor:
-        url_list = current_obj['links']
-        results = monitor.prices_from_url(url_list)
-        monitor.verify_save_prices(results)
+    #telegram_thread = Thread(target=telegram_bot.initialize, name="TelegramBot")
+    monitor_thread = Thread(target=asyncio.run, name="Monitor thread", args=(continuos_verify_price(db, monitor),))
+
+    monitor_thread.start()
+    #telegram_thread.start()
 
 if __name__ == "__main__":
-    main()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+    loop.close()

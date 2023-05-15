@@ -10,6 +10,7 @@ pytest-playwright = "*"
 nltk = "*"
 numpy = "*"
 scikit-learn = "*"
+python-telegram-bot = "*"
 
 [dev-packages]
 
