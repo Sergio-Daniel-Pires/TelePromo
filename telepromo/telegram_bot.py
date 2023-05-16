@@ -78,7 +78,7 @@ async def donation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
 
     context.user_data[START] = True
     
-    return SHOW_DONATE
+    return SHOWING
 
 async def select_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     """Add new product"""
@@ -149,19 +149,6 @@ async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 def main():
     application = Application.builder().token("6163736593:AAFRImnBRLZ3Ra7TRuECvoBT1juJQmNxUv8").build()
 
-    end_donation_conv = ConversationHandler(
-        entry_points={
-            CallbackQueryHandler(return_to_start, pattern="^" + str(END) + "$")
-        },
-        states={},
-        fallbacks=[
-            CommandHandler("stop", stop),
-        ],
-        map_to_parent={
-            SELECTING_ACTION: SELECTING_ACTION
-        },
-    )
-
     add_product_conv = ConversationHandler(
         entry_points={
             CallbackQueryHandler(ask_for_product, pattern="^" + str(ELETRONICS) + "$|^" + str(OTHERS) + "$")
@@ -208,7 +195,6 @@ def main():
         entry_points=[CommandHandler("start", start)],
         states={
             SHOWING: [CallbackQueryHandler(start, pattern="^" + str(END) + "$")],
-            SHOW_DONATE: [end_donation_conv],
             SELECTING_ACTION: selection_handlers,
             STOPPING: [CommandHandler("start", start)]
         },
