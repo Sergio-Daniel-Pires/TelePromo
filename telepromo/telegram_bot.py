@@ -18,9 +18,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # First Level
-SELECTING_ACTION = map(chr, range(1))
+SELECTING_ACTION, SELECTING_CATEGORY, ADDING = map(chr, range(3))
 
-STOPPING, SHOWING = map(chr, range(8, 10))
+# Second
+ELETRONICS, OTHERS = map(chr, range(4, 6))
+
+# Third
+ANOTHER_PRODUCT = map(chr, range(7, 9))
+
+STOPPING, SHOWING, TYPING = map(chr, range(9, 12))
 
 END = ConversationHandler.END
 
@@ -28,7 +34,8 @@ END = ConversationHandler.END
     START,
     DONATION,
     SHOW_DONATE,
-) = map(chr, range(10, 13))
+    RETURN
+) = map(chr, range(11, 15))
 
 # Top Level
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
@@ -40,8 +47,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     )
 
     buttons = [
-        [InlineKeyboardButton(text="Donation", callback_data=str(DONATION))],
-        [InlineKeyboardButton(text="Novo produto", callback_data=str(DONATION))],
+        [InlineKeyboardButton(text="Fortalecer Breja", callback_data=str(DONATION))],
+        [InlineKeyboardButton(text="Novo produto", callback_data=str(SELECTING_CATEGORY))],
         [InlineKeyboardButton(text="Lista de Desejos", callback_data=str(DONATION))],
     ]
     keyboard = InlineKeyboardMarkup(buttons)
@@ -73,23 +80,66 @@ async def donation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     
     return SHOW_DONATE
 
-async def end_donation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+async def select_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    """Add new product"""
+    select_category_text = (
+        "Selecione a categoria do produto:\n"
+    )
+    buttons = [
+        [InlineKeyboardButton(text="Eletronicos", callback_data=str(ELETRONICS))],
+        [InlineKeyboardButton(text="Outros", callback_data=str(OTHERS))],
+        [InlineKeyboardButton(text="Inicio", callback_data=str(END))]
+    ]
+    keyboard = InlineKeyboardMarkup(buttons)
+    await update.callback_query.answer()
+    await update.callback_query.edit_message_text(text=select_category_text, reply_markup=keyboard)
+
+    return ADDING
+
+async def ask_for_product(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    new_product_text = (
+        "Escreva abaixo o nome do produto:\n"
+    )
+    button = InlineKeyboardButton(text="Voltar", callback_data=str(RETURN))
+    keyboard = InlineKeyboardMarkup.from_button(button)
+    await update.callback_query.edit_message_text(text=new_product_text, reply_markup=keyboard)
+
+    context.user_data[START] = True
+
+    return TYPING
+
+async def save_product(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    #
+    # Salvar produto no Mongo
+    #
+    ask_new_product = (
+            "Adicionado! Deseja adicionais mais?"
+        )
+    
+    buttons = [
+        [InlineKeyboardButton(text="Sim", callback_data=str(RETURN))],
+        [InlineKeyboardButton(text="Nao", callback_data=str(END))]
+    ]
+    keyboard = InlineKeyboardMarkup(buttons)
+    await update.message.reply_text(text=ask_new_product, reply_markup=keyboard)
+
+    return ANOTHER_PRODUCT
+
+async def return_to_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    context.user_data[START] = True
     await start(update, context)
 
-    return END
+    return SELECTING_ACTION
+
+async def change_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    await select_category(update, context)
+
+    return RETURN
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """End Conversation by command."""
     await update.message.reply_text("Okay, bye.")
-    return END
-
-async def end(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """End conversation from InlineKeyboardButton."""
-    await update.callback_query.answer()
-
-    text = "See you around!"
-    await update.callback_query.edit_message_text(text=text)
-    return END
+    return SELECTING_CATEGORY
 
 #class TelegramBot():
 #    def __init__(self, database) -> None:
@@ -99,27 +149,66 @@ async def end(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 def main():
     application = Application.builder().token("6163736593:AAFRImnBRLZ3Ra7TRuECvoBT1juJQmNxUv8").build()
 
-    donation_conv = ConversationHandler(
+    end_donation_conv = ConversationHandler(
         entry_points={
-            CallbackQueryHandler(end_donation, pattern="^" + str(END) + "$"),
+            CallbackQueryHandler(return_to_start, pattern="^" + str(END) + "$")
         },
         states={},
         fallbacks=[
             CommandHandler("stop", stop),
         ],
         map_to_parent={
-            END: SELECTING_ACTION,
+            SELECTING_ACTION: SELECTING_ACTION
         },
     )
 
+    add_product_conv = ConversationHandler(
+        entry_points={
+            CallbackQueryHandler(ask_for_product, pattern="^" + str(ELETRONICS) + "$|^" + str(OTHERS) + "$")
+        },
+        states={
+            TYPING: [MessageHandler(filters.TEXT & ~filters.COMMAND, save_product)],
+            ANOTHER_PRODUCT: [
+                CallbackQueryHandler(return_to_start, pattern="^" + str(END) + "$"),
+                CallbackQueryHandler(select_category, pattern="^" + str(RETURN) + "$")
+            ]
+        },
+        fallbacks=[
+            CallbackQueryHandler(select_category, pattern="^" + str(RETURN) + "$"),
+            CommandHandler("stop", stop)
+        ],
+        map_to_parent={
+            RETURN: ADDING,
+            ADDING: ADDING,
+            SELECTING_ACTION: SELECTING_ACTION
+        }
+    )
+
+    category_conv = ConversationHandler(
+        entry_points={
+            CallbackQueryHandler(select_category, pattern="^" + str(SELECTING_CATEGORY) + "$")
+        },
+        states={
+            ADDING: [add_product_conv]
+        },
+        fallbacks=[
+            CallbackQueryHandler(return_to_start, pattern="^" + str(END) + "$"),
+            CommandHandler("stop", stop)
+        ],
+        map_to_parent={
+            SELECTING_ACTION: SELECTING_ACTION
+        }
+    )
+
     selection_handlers = [
-        CallbackQueryHandler(donation, pattern="^" + str(DONATION) + "$")
+        category_conv,
+        CallbackQueryHandler(donation, pattern="^" + str(DONATION) + "$"),
     ]
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
             SHOWING: [CallbackQueryHandler(start, pattern="^" + str(END) + "$")],
-            SHOW_DONATE: [donation_conv],
+            SHOW_DONATE: [end_donation_conv],
             SELECTING_ACTION: selection_handlers,
             STOPPING: [CommandHandler("start", start)]
         },
