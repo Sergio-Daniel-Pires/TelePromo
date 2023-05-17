@@ -1,7 +1,9 @@
 from pymongo import MongoClient
 
 from bots import LINKS
-from models import Wished
+from models import Wished, User
+
+import logging
 
 class Database(object):
     """
@@ -36,12 +38,64 @@ class Database(object):
         if new_sent is not None:
             self.database[category].update_one({"tags": {"$all": tags}}, {"$push": {"sents": new_sent}})
 
+    # User Funcs
+    def find_or_create_user(self, user_id):
+        user = self.database['users'].find_one({"_id": user_id})
+        if user is None:
+            self.database['users'].insert_one(User(
+                user_id,
+                wish_list = [],
+                premium = False
+            ).__dict__)
+        return self.database['users'].find_one({"_id": user_id})
+
+    def user_wishes(self, user_id) -> list[Wished]:
+        return self.find_or_create_user(user_id)['wish_list']
+
+    def verify_in_user_wish(self, user_id, tag_list, **kwargs):
+        all_wishes = kwargs.get("wish_list")
+        if all_wishes is None:
+            all_wishes = self.user_wishes(user_id)
+
+        for wish in all_wishes:
+            if wish['tags'] == tag_list:
+                return wish['name']
+        
+        return False
+
+    def insert_new_user_wish(self, user_id, tag_list, name, category):
+        user = self.find_or_create_user(user_id)
+        user_wish = user.get('wish_list')
+        repeated = self.verify_in_user_wish(user_id, tag_list, wish_list=user_wish)
+        if not repeated:
+            if len(user_wish) >= 10 and not user.get("premium", False):
+                return (False, "Usuário só pode ter até 10 wishes")
+            
+            new_wish = {
+                "name": name,
+                "tags": tag_list,
+                "category": category
+            }
+            self.database['users'].update_one({"_id": user_id}, {"$push": {"wish_list": new_wish}})
+            self.new_wish(tags=tag_list, user=user_id)
+            return (True, "Adicionado com sucesso!")
+        else:
+            return (False, f"Usuário já tem um alerta igual: {repeated}")
+
+    def remove_user_wish(self, user_id, **kwargs):
+        wish_obj = kwargs.get("wish_obj")
+        if wish_obj is None:
+            name = kwargs.get("name")
+            wish_obj = self.database['users'].find_one({"$and": [{"_id": user_id}, {"wish_list.name": name}]})
+
+        logging.warning(wish_obj)
+        tag_list = wish_obj['tags']
+        self.database['users'].update_one({"_id": user_id}, {"$pull": {"wish_list": wish_obj}})
+        self.remove_wish(tags=tag_list, user=user_id)
+
     # Wish Funcs
-    #def new_wish(self):        
     def new_wish(self, **kwargs):
         tags = kwargs.get('tags')
-        #category = kwargs.get('category')
-        #links = kwargs.get('links')
         user = kwargs.get('user')
         wish_obj = self.find_wish(tags)
         if wish_obj is None:
@@ -52,8 +106,15 @@ class Database(object):
         if user in wish_obj['users']:
             return False
         
-        wish_obj = self.database['wishes'].update_one({"tags": {"$all": tags}}, {"$push": {"users": user}})
+        self.database['wishes'].update_one({"tags": {"$all": tags}}, {"$push": {"users": user}})
         return True
+    
+    def remove_wish(self, **kwargs):
+        tags = kwargs.get('tags')
+        user = kwargs.get('user')
+        wish_obj = self.find_wish(tags)
+        if wish_obj is not None:
+            self.database['wishes'].update_one({"tags": {"$all": tags}}, {"$pull": {"users": user}})
 
     def find_wish(self, tags: list):
         return self.database['wishes'].find_one({"tags": {"$all": tags}})

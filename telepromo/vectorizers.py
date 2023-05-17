@@ -1,8 +1,14 @@
 import pickle
 from utils import normalize_str
+from enum import Enum
 
 class Vectorizers(object):
+    class Categorys(Enum):
+        ELETRONICS = 'eletronics'
+        OTHERS = 'others'
+
     eletronic_model: object
+    categorys: Categorys
 
     def __init__(self, **kwargs):
         """
@@ -10,19 +16,20 @@ class Vectorizers(object):
         """
         # Paths
         #categorizer_model_path = kwargs.get('eletronic_model_path', 'trains/eletronic_train.tlp')
+        self.categorys = self.Categorys
         eletronic_model_path = kwargs.get('eletronic_model_path', 'trains/eletronic_train.tlp')
         
         # Pickle load serialized trained model
         self.eletronic_model = pickle.load(open(eletronic_model_path, 'rb'))
         self.funcs = {
-            'eletronics': self.eletronic_model
+            self.categorys.ELETRONICS: self.eletronic_model
         }
 
     def select_category(self, name: str) -> list[float]:
         """
         Get a name and return a category
         """
-        return 'eletronics'
+        return self.categorys.ELETRONICS
     
     def select_vectorizer(self, category: str):
         """
@@ -37,4 +44,7 @@ class Vectorizers(object):
         vectorizer = self.select_vectorizer(category)
         tf_idf = vectorizer.transform(product_name.split())
         feature_names = vectorizer.get_feature_names_out()
-        return [word for word in feature_names if sum(tf_idf[:, vectorizer.vocabulary_[word]].toarray())]
+        result = [word for word in feature_names if sum(tf_idf[:, vectorizer.vocabulary_[word]].toarray())]
+        if result == []:
+            result = product_name.split()
+        return result

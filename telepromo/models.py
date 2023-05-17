@@ -5,7 +5,7 @@ class User(object):
     User object to verify list of wishes and if is premium
     """
     _id: str
-    wish_list: List[list]
+    wish_list: List[dict]
     premium: bool
 
     def __init__(self, user_id, **kwargs) -> None:

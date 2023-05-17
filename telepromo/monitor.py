@@ -5,13 +5,17 @@ import json
 from typing import List
 
 from models import Product, Price
+from database import Database
+from vectorizers import Vectorizers
+from telegram_bot import TelegramBot
 
 class Monitoring(object):
     """
     Class to monitoring sites in url
     """
-    database: object
-    vectorizer: object
+    database: Database
+    vectorizer: Vectorizers
+    telegram_bot: TelegramBot
 
     def __init__(self, **kwargs):
         self.retry = kwargs.get("retrys")
