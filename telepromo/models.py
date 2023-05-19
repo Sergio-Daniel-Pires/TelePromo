@@ -1,4 +1,5 @@
 from typing import Literal, List
+from datetime import datetime
 
 class User(object):
     """
@@ -31,18 +32,24 @@ class Wished(object):
         self.users = []
 
 class Price:
-    date: str # %d/%m/%y
+    date: datetime # %d/%m/%y
     price: float
     is_promo: bool
     is_afiliate: bool
     url: str
+
+    # Optional
+    users: list[str]
+
+    def get_date(self) -> datetime:
+        return datetime.strptime(self.date, "%d/%m/%y")
 
     def __init__(self, **kwargs) -> None:
         for kwarg in kwargs:
             self.__setattr__(kwarg, kwargs[kwarg])
 
     def __eq__(self, __value: object) -> bool:
-        if self.date == __value.date:
+        if abs(self.get_date() - __value.get_date()) < 3:
             if self.price == __value.price:
                 if self.url == __value.url:
                     return True
@@ -64,11 +71,23 @@ class Product(object):
         self.tags = kwargs.get('tags')
         self.price = kwargs.get('price')
         self.history = kwargs.get('history')
-        self.sents = []
+        self.sents = kwargs.get('sents', [])
+        
+    def get_history(self) -> list[Price]:
+        return [Price(**items) for items in self.history]
 
-    def avarage(history: dict) -> float:
-        values = [value['price'] for value in history]
+    def get_sents(self) -> list[Price]:
+        return [Price(**items) for items in self.sents]
+
+    def avarage(self) -> float:
+        values = [float(value.price) for value in self.get_history()]
         return sum(values)/len(values)
+    
+    def verify_in_history(self, new_price: dict | Price) -> bool:
+        if type(new_price) is dict:
+            new_price = Price(**new_price)
+        
+        return new_price in self.get_history()
 
 class Links(object):
     """
@@ -84,3 +103,6 @@ class Links(object):
         self.links = kwargs.get('links')
         self.repeat = kwargs.get('repeat')
         self.last = None
+  
+#class MyMetrics(object):
+#    product_user_alerts: 

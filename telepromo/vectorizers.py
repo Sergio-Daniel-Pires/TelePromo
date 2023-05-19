@@ -22,14 +22,14 @@ class Vectorizers(object):
         # Pickle load serialized trained model
         self.eletronic_model = pickle.load(open(eletronic_model_path, 'rb'))
         self.funcs = {
-            self.categorys.ELETRONICS: self.eletronic_model
+            self.categorys.ELETRONICS.value: self.eletronic_model
         }
 
     def select_category(self, name: str) -> list[float]:
         """
         Get a name and return a category
         """
-        return self.categorys.ELETRONICS
+        return self.categorys.ELETRONICS.value
     
     def select_vectorizer(self, category: str):
         """
@@ -40,6 +40,8 @@ class Vectorizers(object):
     def extract_tags(self, raw_product_name: str) -> list:
         product_name = normalize_str(raw_product_name)
         category = self.select_category(product_name)
+        import logging
+        logging.warning(category)
         #for category in categories:
         vectorizer = self.select_vectorizer(category)
         tf_idf = vectorizer.transform(product_name.split())

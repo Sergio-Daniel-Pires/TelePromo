@@ -3,3 +3,4 @@
 ___pycache__
 *.tlp
 db/*
+*.ipynb

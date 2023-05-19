@@ -11,6 +11,22 @@ services:
     networks:
       - network
   
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: prometheus
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  #     - prometheus_data:/prometheus
+  #   command:
+  #     - '--config.file=/etc/prometheus/prometheus.yml'
+  #     - '--storage.tsdb.path=/prometheus'
+  #     - '--web.enable-lifecycle'
+  #   expose:
+  #     - 9090
+  #   networks:
+  #     - network
+    
   telepromo:
     depends_on: [mongodb]
     container_name: tp01

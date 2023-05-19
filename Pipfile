@@ -11,6 +11,7 @@ nltk = "*"
 numpy = "*"
 scikit-learn = "*"
 python-telegram-bot = "*"
+prometheus-client = "*"
 
 [dev-packages]
 

@@ -1,7 +1,7 @@
 from pymongo import MongoClient
 
 from bots import LINKS
-from models import Wished, User
+from models import Wished, User, Price
 
 import logging
 
@@ -33,10 +33,12 @@ class Database(object):
     def new_product(self, category: str, product: dict):
         self.database[category].insert_one(product)
 
-    def update_product(self, category: str, tags: list, new_price: float, new_sent: dict = None):
-        self.database[category].update_one({"tags": {"$all": tags}}, {"$set": {'price': new_price}})
-        if new_sent is not None:
-            self.database[category].update_one({"tags": {"$all": tags}}, {"$push": {"sents": new_sent}})
+    def update_product(self, category: str, tags: list, price: float, new_price: dict | Price = None):
+        self.database[category].update_one({"tags": {"$all": tags}}, {"$set": {'price': price}})
+        if new_price is not None:
+            if type(new_price) is Price:
+                new_price = new_price.__dict__
+            self.database[category].update_one({"tags": {"$all": tags}}, {"$push": {"history": new_price}})
 
     # User Funcs
     def find_or_create_user(self, user_id):

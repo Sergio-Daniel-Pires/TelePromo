@@ -12,7 +12,7 @@ LINKS = [
         "links": [
             {
                 "name": "Kabum",
-                "link": "https://www.kabum.com.br/ofertas/megamaio",
+                "link": "https://www.kabum.com.br",
                 "repeat": "60",
                 "last":  "2023-05-11 00:30:03.354898"
             },
