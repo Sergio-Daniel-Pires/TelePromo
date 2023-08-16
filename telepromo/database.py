@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 
-from bots import LINKS
+from bots.base import LINKS
 from models import Wished, User, Price
 
 import logging
@@ -26,19 +26,29 @@ class Database(object):
         links = self.database['links'].find({})
         return links
 
-    def find_product(self, category: str, tags: list):
-        product = self.database[category].find_one({"tags": {"$all": tags}})
+    def find_product(self, tags: list):
+        product = self.database['products'].find_one({"tags": {"$all": tags}})
         return product
     
-    def new_product(self, category: str, product: dict):
-        self.database[category].insert_one(product)
+    def new_product(self, product: dict):
+        self.database['products'].insert_one(product)
 
-    def update_product(self, category: str, tags: list, price: float, new_price: dict | Price = None):
-        self.database[category].update_one({"tags": {"$all": tags}}, {"$set": {'price': price}})
+    def update_product_history(self, tags: list, price: float, new_price: dict | Price = None):
+        self.database['products'].update_one({"tags": {"$all": tags}}, {"$set": {'price': price}})
         if new_price is not None:
             if type(new_price) is Price:
                 new_price = new_price.__dict__
-            self.database[category].update_one({"tags": {"$all": tags}}, {"$push": {"history": new_price}})
+
+            self.database['products'].update_one({"tags": {"$all": tags}}, {"$push": {"history": new_price}})
+
+    def update_product_sents(self, tags: list, new_sent: Price | dict, index: bool):
+        if type(new_sent) is Price:
+            new_sent = new_sent.__dict__
+
+        if index is not None:
+            self.database['products'].update_one({"tags": {"$all": tags}}, {"$set": {f"sents.{index}": new_sent}})
+        else:
+            self.database['products'].update_one({"tags": {"$all": tags}}, {"$push": {"sents": new_sent}})
 
     # User Funcs
     def find_or_create_user(self, user_id):
@@ -90,7 +100,6 @@ class Database(object):
             name = kwargs.get("name")
             wish_obj = self.database['users'].find_one({"$and": [{"_id": user_id}, {"wish_list.name": name}]})
 
-        logging.warning(wish_obj)
         tag_list = wish_obj['tags']
         self.database['users'].update_one({"_id": user_id}, {"$pull": {"wish_list": wish_obj}})
         self.remove_wish(tags=tag_list, user=user_id)
