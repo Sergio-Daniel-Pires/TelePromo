@@ -1,6 +1,10 @@
 from base import Bot
 
-class Pichau(Bot):
+class MadeiraMadeira(Bot):
+    """
+    Erros:
+    img nao funciona
+    """
     async def get_prices(self, **kwargs):
         page = self.page
         await page.goto(kwargs.get('link'))
@@ -44,7 +48,7 @@ class Pichau(Bot):
 
 
 if __name__ == "__main__":
-    bot = Pichau()
+    bot = MadeiraMadeira()
     import asyncio
     results = asyncio.run(
         bot.run(headless=True, link="https://www.madeiramadeira.com.br/ofertas-do-dia")

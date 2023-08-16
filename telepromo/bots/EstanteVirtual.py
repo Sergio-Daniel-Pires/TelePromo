@@ -1,12 +1,13 @@
 from base import Bot
 
-class Terabyte(Bot):
+class EstanteVirtual(Bot):
     async def get_prices(self, **kwargs):
         #return list_prices
         page = self.page
         await page.goto(kwargs.get('link'))
         all_results = []
 
+        # Erro de waiting to be visible
         await page.wait_for_selector('div.VueCarousel-wrapper')
 
         results = await page.evaluate("""
@@ -39,8 +40,8 @@ class Terabyte(Bot):
 
 
 if __name__ == "__main__":
-    bot = Terabyte()
+    bot = EstanteVirtual()
     import asyncio
     results = asyncio.run(
-        bot.run(headless=False, link="https://www.terabyteshop.com.br/")
+        bot.run(headless=True, link="https://www.terabyteshop.com.br/")
     )

@@ -1,6 +1,7 @@
 from base import Bot
 
 class Terabyte(Bot):
+    # Funcionando
     async def get_prices(self, **kwargs):
         page = self.page
         await page.goto(kwargs.get('link'))

@@ -71,11 +71,21 @@ class Bot(ABC):
     browser: BrowserType
     page: Page
     headless: bool
+    user_agent: str = (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36"
+    )
 
     async def run(self, **kwargs):
+        headless = kwargs.get("headless", True)
+
         async with async_playwright() as playwright:
-            self.browser = await playwright.chromium.launch(headless=kwargs.get('headless', True))
-            self.page = await self.browser.new_page()
+            self.browser = await playwright.chromium.launch(
+                headless=headless
+            )
+            self.page = await self.browser.new_page(
+                user_agent=self.user_agent
+            )
 
             result = await self.get_prices(**kwargs)
 

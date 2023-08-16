@@ -31,6 +31,6 @@ if __name__ == "__main__":
     bot = Kabum()
     import asyncio
     results = asyncio.run(
-        bot.run(headless=True, link="https://www.kabum.com.br/ofertas/julhogamer")
+        bot.run(headless=True, link="https://www.kabum.com.br/ofertas/BLACKNINJA")
     )
     print(results)
