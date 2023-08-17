@@ -3,12 +3,12 @@ from base import Bot
 
 class Pichau(Bot):
     # Funcionando
-    async def scroll_to_bottom(self, page) -> None:
+    async def scroll_to_bottom (self, page) -> None:
         for i in range(8):
             await page.evaluate(f"window.scrollTo(0, document.body.scrollHeight * .{i//2 + 5});"),
             await asyncio.sleep(0.3)
 
-    async def get_prices(self, **kwargs):
+    async def get_prices (self, **kwargs):
         page = self.page
 
         page.on("console", lambda msg: print(f"error: {msg.text}") if msg.type == "error" else None)

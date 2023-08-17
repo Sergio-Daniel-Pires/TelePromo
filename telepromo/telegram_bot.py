@@ -46,7 +46,7 @@ class TelegramBot():
     database: Database
     vectorizer: Vectorizers
 
-    def __init__(self, **kwargs) -> None:
+    def __init__ (self, **kwargs) -> None:
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
         self.application = Application.builder().token("6163736593:AAFRImnBRLZ3Ra7TRuECvoBT1juJQmNxUv8").build()
@@ -126,15 +126,15 @@ class TelegramBot():
         )
         self.application.add_handler(handler=self.conv_handler)
 
-    async def iniatilize(self):
+    async def iniatilize (self):
         await self.application.initialize()
         await self.application.start()
         await self.application.updater.start_polling()
 
-    async def send_message(self, chat_id, text):
+    async def send_message (self, chat_id, text):
         await self.application.bot.sendMessage(chat_id=chat_id, text=text)
 
-    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    async def start (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         """Select an action: Donation, Finalize, List wishs, New Wish"""
         text = (
             "Escolha uma dos botões abaixo:\n"
@@ -161,7 +161,7 @@ class TelegramBot():
         context.user_data[START] = False
         return SELECTING_ACTION
 
-    async def donation(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    async def donation (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         """View the donations method and return"""
         donation_text = ("O criador desse bot é o Sérgio Pires @github\n"
                         "Caso queira me pagar uma breja, pode mandar neses PIX:\n"
@@ -176,7 +176,7 @@ class TelegramBot():
 
         return SHOWING
 
-    async def select_category(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    async def select_category (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         """Add new product"""
         select_category_text = (
             "Selecione a categoria do produto:\n"
@@ -192,7 +192,7 @@ class TelegramBot():
 
         return TO_ADD
 
-    async def ask_for_product(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    async def ask_for_product (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         new_product_text = (
             "Escreva abaixo o nome do produto:\n"
         )
@@ -204,7 +204,7 @@ class TelegramBot():
 
         return TYPING
 
-    async def save_product(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    async def save_product (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         # Salvar produto no Mongo
         user_id = update.message.from_user["id"]
         product = update.message.text
@@ -237,7 +237,7 @@ class TelegramBot():
 
         return ANOTHER_PRODUCT
 
-    async def list_wishs(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    async def list_wishs (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         buttons = []
 
         user_id = context._user_id
@@ -259,7 +259,7 @@ class TelegramBot():
 
         return LISTING
 
-    async def product_details(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    async def product_details (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         option = update.callback_query.data
         user_id = context._user_id
         index = int(option[1:])
@@ -278,7 +278,7 @@ class TelegramBot():
 
         return SHOWING
 
-    async def return_to_product_list(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    async def return_to_product_list (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         option = update.callback_query.data
         if option.startswith("R") and option[1:].isdigit():
             user_id = context._user_id
@@ -290,18 +290,18 @@ class TelegramBot():
 
         return LISTING
 
-    async def return_to_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    async def return_to_start (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         context.user_data[START] = True
         await self.start(update, context)
 
         return SELECTING_ACTION
 
-    async def stop(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    async def stop (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """End Conversation by command."""
         await update.message.reply_text("Okay, bye.")
         return SELECTING_CATEGORY
 
-async def main():
+async def main ():
     telebot = TelegramBot("")
     await telebot.iniatilize()
 

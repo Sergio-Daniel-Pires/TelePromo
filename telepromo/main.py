@@ -7,16 +7,17 @@ import asyncio
 from datetime import datetime
 import logging
 
-DAYS_IN_YEAR = 365
-MINUTES_IN_DAY = 1440
+from utils import DAYS_IN_YEAR, MINUTES_IN_DAY
 
-async def verify_urls_price(monitor: Monitoring, current_obj: dict):
+
+async def verify_urls_price (monitor: Monitoring, current_obj: dict):
     url_list = current_obj["links"]
     results = await monitor.prices_from_url(url_list)
     new_prices = await monitor.verify_save_prices(results)
     return new_prices
 
-async def continuos_verify_price(db: Database, monitor: Monitoring):
+
+async def continuos_verify_price (db: Database, monitor: Monitoring):
     semaphore = asyncio.Semaphore(4)
     for day in range(DAYS_IN_YEAR):
         day_date = datetime.today()
@@ -46,7 +47,7 @@ async def continuos_verify_price(db: Database, monitor: Monitoring):
                 logging.warning(f"Runned too fast, waiting {remaining} seconds.")
                 await asyncio.sleep(remaining)
 
-async def main():
+async def main ():
     db = Database()
     vectorizers = Vectorizers()
     telegram_bot = TelegramBot(

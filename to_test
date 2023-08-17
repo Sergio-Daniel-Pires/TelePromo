@@ -1,0 +1,4 @@
+Testar:
+
+Database:
+    find_or_create_user(self, user_id):

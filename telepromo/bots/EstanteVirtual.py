@@ -1,7 +1,7 @@
 from base import Bot
 
 class EstanteVirtual(Bot):
-    async def get_prices(self, **kwargs):
+    async def get_prices (self, **kwargs):
         page = self.page
         await page.goto(kwargs.get("link"))
         all_results = []

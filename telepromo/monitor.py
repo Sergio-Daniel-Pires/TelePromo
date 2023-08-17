@@ -11,7 +11,7 @@ from telegram_bot import TelegramBot
 
 MINIMUN_DISCOUNT = 0.05
 
-class Monitoring(object):
+class Monitoring (object):
     """
     Class to monitoring sites in url
     """
@@ -19,13 +19,13 @@ class Monitoring(object):
     vectorizer: Vectorizers
     telegram_bot: TelegramBot
 
-    def __init__(self, **kwargs):
+    def __init__ (self, **kwargs):
         self.retry = kwargs.get("retrys")
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
         self.telegram_bot = kwargs.get("telegram_bot")
 
-    async def prices_from_url(self, urls: List[dict]) -> list:
+    async def prices_from_url (self, urls: List[dict]) -> list:
         """
         Get a URL and return the dict with prices
         """
@@ -45,7 +45,7 @@ class Monitoring(object):
 
         return all_results
 
-    async def verify_save_prices(self, results: dict):
+    async def verify_save_prices (self, results: dict):
         today = datetime.datetime.utcnow().strftime("%d/%m/%y")
         for result in results:
             name = result["name"]
@@ -106,15 +106,15 @@ class Monitoring(object):
             else:
                 logging.warning(f"Nao eh oferta boa (Minimo: {MINIMUN_DISCOUNT * 100}%)")
 
-    def verify_get_in_sents(self, new_price: Price | dict):
+    def verify_get_in_sents (self, new_price: Price | dict):
         if type(new_price) is dict:
             new_price = Price(**new_price)
 
         return new_price in self.get
 
-    async def send_to_user(self, chat_id: int, result: dict):
+    async def send_to_user (self, chat_id: int, result: dict):
 
         await self.telegram_bot.send_message(chat_id, str(result))
 
-    def get_urls(self):
+    def get_urls (self):
         return self.database.get_links

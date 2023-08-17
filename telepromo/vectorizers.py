@@ -10,12 +10,11 @@ class Vectorizers(object):
     eletronic_model: object
     categorys: Categorys
 
-    def __init__(self, **kwargs):
+    def __init__ (self, **kwargs):
         """
         Load models from training TL_IDF
         """
         # Paths
-        #categorizer_model_path = kwargs.get("eletronic_model_path", "trains/eletronic_train.tlp")
         self.categorys = self.Categorys
         eletronic_model_path = kwargs.get("eletronic_model_path", "trains/eletronic_train.tlp")
 
@@ -25,19 +24,19 @@ class Vectorizers(object):
             self.categorys.ELETRONICS.value: self.eletronic_model
         }
 
-    def select_category(self, name: str) -> list[float]:
+    def select_category (self, name: str) -> list[float]:
         """
         Get a name and return a category
         """
         return "diversified"
 
-    def select_vectorizer(self, category: str):
+    def select_vectorizer (self, category: str):
         """
         Get a category and returns model function
         """
         return self.funcs[category]
 
-    def extract_tags(self, raw_product_name: str, category: str) -> list:
+    def extract_tags (self, raw_product_name: str, category: str) -> list:
         product_name = normalize_str(raw_product_name)
         if category is not "diversified":
             vectorizer = self.select_vectorizer(category)

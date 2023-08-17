@@ -1,7 +1,11 @@
 import re
 from nltk.util import ngrams
 
-def normalize_str(text: str) -> str:
+DAYS_IN_YEAR = 365
+MINUTES_IN_DAY = 1440
+SECONDS_IN_DAY = 86400
+
+def normalize_str (text: str) -> str:
   text = text.lower()
   text = re.sub(r"[ãâáàä]", "a", text)
   text = re.sub(r"[êéèë]", "e", text)
@@ -12,7 +16,7 @@ def normalize_str(text: str) -> str:
   return text
 
 # Model Training
-def custom_analyzer(text):
+def custom_analyzer (text):
   # substitui bigrams e trigrams por versões sem espaço
   text = normalize_str(text)
   # Create onegrams, bigrams and trigrams
