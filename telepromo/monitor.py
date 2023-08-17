@@ -31,8 +31,8 @@ class Monitoring(object):
         """
         all_results = []
         for url in urls:
-            link = url['link']
-            bot_name = url['name']
+            link = url["link"]
+            bot_name = url["name"]
             if link == "":
                 logging.warn(f"{bot_name} não tem link, skipando...")
                 continue
@@ -48,19 +48,19 @@ class Monitoring(object):
     async def verify_save_prices(self, results: dict):
         today = datetime.datetime.utcnow().strftime("%d/%m/%y")
         for result in results:
-            name = result['name']
-            category = result.get('category', None)
+            name = result["name"]
+            category = result.get("category", None)
             if category is None:
                 category = self.vectorizer.select_category(name)
 
             tags = self.vectorizer.extract_tags(name, category)
             if tags == []:
                 continue
-            
-            price = float(result['price'])
-            is_promo = result.get('promo', None)
-            is_afiliate = result.get('is_afiliate', None)
-            url = result.get('url', '')
+
+            price = float(result["price"])
+            is_promo = result.get("promo", None)
+            is_afiliate = result.get("is_afiliate", None)
+            url = result.get("url", "")
             new_price = Price(date=today, price=price, is_promo=is_promo, is_afiliate=is_afiliate, url=url)
             new_product = False
 
@@ -79,22 +79,22 @@ class Monitoring(object):
                 logging.warning("Nao eh preco novo") # Mas alguem pode ainda nao ter recebido essa oferta
 
             all_wishes = self.database.find_all_wishes(tags)
-            all_chats_id = {chat_id for wish_list in all_wishes for chat_id in wish_list['users']}
+            all_chats_id = {chat_id for wish_list in all_wishes for chat_id in wish_list["users"]}
 
             avarage_price = product_obj.avarage()
             sent_idx = product_obj.verify_get_in_sents(new_price)
-            if (new_product or 
-                new_price.price < avarage_price * (1-MINIMUN_DISCOUNT) or 
-                (None not in (sent_idx, all_wishes) and set(product_obj.sents[sent_idx]['users']) <= all_chats_id)):
-                
+            if (new_product or
+                new_price.price < avarage_price * (1-MINIMUN_DISCOUNT) or
+                (None not in (sent_idx, all_wishes) and set(product_obj.sents[sent_idx]["users"]) <= all_chats_id)):
+
                 if sent_idx is None:
                     current_sent = new_price
                     current_sent.users = []
                 else:
                     current_sent = product_obj.get_sents()[sent_idx]
-                
+
                 for wish_list in all_wishes:
-                    for chat_id in wish_list['users']:
+                    for chat_id in wish_list["users"]:
                         chat_id
                         if chat_id not in current_sent.users:
                             # Send to user and to sents list
@@ -109,11 +109,11 @@ class Monitoring(object):
     def verify_get_in_sents(self, new_price: Price | dict):
         if type(new_price) is dict:
             new_price = Price(**new_price)
-        
+
         return new_price in self.get
 
     async def send_to_user(self, chat_id: int, result: dict):
-        
+
         await self.telegram_bot.send_message(chat_id, str(result))
 
     def get_urls(self):

@@ -11,7 +11,7 @@ DAYS_IN_YEAR = 365
 MINUTES_IN_DAY = 1440
 
 async def verify_urls_price(monitor: Monitoring, current_obj: dict):
-    url_list = current_obj['links']
+    url_list = current_obj["links"]
     results = await monitor.prices_from_url(url_list)
     new_prices = await monitor.verify_save_prices(results)
     return new_prices
@@ -33,7 +33,7 @@ async def continuos_verify_price(db: Database, monitor: Monitoring):
             for current_obj in links_cursor:
                 async with semaphore:
                     tasks.append(asyncio.ensure_future(verify_urls_price(monitor, current_obj)))
-            
+
             results = await asyncio.gather(*tasks)
 
             # Verifica se o dia acabou e tem que enviar relatorio

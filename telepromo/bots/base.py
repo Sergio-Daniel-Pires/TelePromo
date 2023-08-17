@@ -1,6 +1,13 @@
+import re
+import logging
+
+from playwright.async_api import async_playwright
+from playwright.async_api._generated import BrowserType, Page
+from abc import abstractmethod, ABC
+
 LINKS = [
     {
-        "name": "diversificado", 
+        "name": "diversificado",
         "links": [
             {
                 "name": "MagaLu",
@@ -47,28 +54,24 @@ LINKS = [
     },
     {
         "name": "casa/domestico",
-        "links": [
-            {
-                "name": "Madeira Madeira",
-                "link": ""
-            }]
+        "links": [{
+            "name": "Madeira Madeira",
+            "link": ""
+        }]
     },
     {
         "name": "livros",
-        "links": [
-        {
+        "links": [{
             "name": "Estante Virtual",
             "link": ""
         }]
     }
 ]
 
-from playwright.async_api import async_playwright
-from playwright.async_api._generated import BrowserType, Page
-from abc import abstractmethod, ABC
 
-class Bot(ABC):
+class Bot (ABC):
     browser: BrowserType
+    link: str
     page: Page
     headless: bool
     user_agent: str = (
@@ -76,8 +79,9 @@ class Bot(ABC):
         "(KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36"
     )
 
-    async def run(self, **kwargs):
+    async def run (self, **kwargs):
         headless = kwargs.get("headless", True)
+        self.link = kwargs["link"]
 
         async with async_playwright() as playwright:
             self.browser = await playwright.chromium.launch(
@@ -90,9 +94,42 @@ class Bot(ABC):
             result = await self.get_prices(**kwargs)
 
             await self.browser.close()
-        
+
         return result
 
+    @classmethod
+    def format_money (cls, value: str) -> float:
+        clean_string = value
+        try:
+            clean_string = re.sub(r"[^\d.,]", "", clean_string)
+            clean_string = re.sub(r",", ".", clean_string)
+            clean_string = re.sub(r"\.(\d{3})", r"\1", clean_string)
+
+            return float(clean_string)
+
+        except Exception:
+            logging.error(f"{clean_string} is not a valid float!")
+            return None
+
+    def new_product (
+        self, name: str, price: str, url: str, details: str = None,
+        old_price: str = None, img: str = None
+    ):
+        product = {
+            "name": name, "details": details, "price": price,
+            "old_price": old_price, "url": url, "img": img
+        }
+
+        for key in ( "price", "old_price" ):
+            product[key] = self.format_money(product[key])
+
+        for key in ( "img", "url" ):
+            value = product[key]
+            if value and not value.startswith("https://"):
+                product[key] = self.link + product[key]
+
+        return product
+
     @abstractmethod
-    async def get_prices(self):
+    async def get_prices (self):
         ...

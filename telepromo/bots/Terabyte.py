@@ -1,41 +1,43 @@
 from base import Bot
 
+
 class Terabyte(Bot):
     # Funcionando
     async def get_prices(self, **kwargs):
         page = self.page
-        await page.goto(kwargs.get('link'))
+        await page.goto(kwargs.get("link"))
         all_results = []
 
-        await page.wait_for_selector('div.col-xs-12.col-sm-12.col-md-12.nopadding')
-        # await page.wait_for_selector('row produtos-home mg0')
-        #async with page.expect_response(lambda response: response.url == "https://www.terabyteshop.com.br/" and response.status == 200) as response_info:
-        #    print("Awaiting")
-        #    print(response_info)
+        await page.wait_for_selector("div.col-xs-12.col-sm-12.col-md-12.nopadding")
 
-        #await response_info.value
+        products = await page.query_selector_all(".pbox")
+        for product in products:
+            if not (await product.query_selector(".prod-new-price")):
+                continue
 
-        results = await page.evaluate("""
-        const produtos = Array.from(document.querySelectorAll('.pbox'));
-        const resultados = [];
-        produtos.forEach((produto) => {
-            if (produto.querySelector('.prod-new-price')){
-                const name = produto.innerText.split(',')[0].trim()
-                const details = produto.innerText.split('\\\n')[0].trim()
-                const price = produto.querySelector('.prod-new-price').innerText.split(' ')[1]
-                const oldPrice = produto.querySelector('.prod-old-price').innerText.split(' ')[2]
-                const url = produto.querySelector('.commerce_columns_item_image').href
-                const img = produto.querySelector('img').src
-                resultados.push({name, details, price, oldPrice, url, img})
-            }
-        })
-        resultados
-        """)
-        for result in results:
-            result['price'] = float((result['price'][3:].replace('.', '')).replace(',', '.'))
-            all_results.append(result)
+            name_and_details = await product.inner_html()
+            name = name_and_details.split(",")[0].strip()
+            details = name_and_details.split("\n")[0].strip()
 
-        return results
+            price = (
+                await (await product.query_selector(".prod-new-price")).inner_text()
+            ).split(" ")[1]
+
+            obj_old_price = (await (await product.query_selector(".prod-old-price")).inner_text())
+            old_price = None
+            if obj_old_price:
+                old_price = obj_old_price.split(" ")[2]
+
+            url = await (
+                await product.query_selector(".commerce_columns_item_image")
+            ).get_attribute("href")
+
+            img = await (await product.query_selector("img")).get_attribute("src")
+
+            all_results.append(self.new_product(name, price, url, details, old_price, img))
+
+        return all_results
+
 
 if __name__ == "__main__":
     bot = Terabyte()

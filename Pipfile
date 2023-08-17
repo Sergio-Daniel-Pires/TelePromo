@@ -12,6 +12,7 @@ numpy = "*"
 scikit-learn = "*"
 python-telegram-bot = "*"
 prometheus-client = "*"
+flake8 = "*"
 
 [dev-packages]
 

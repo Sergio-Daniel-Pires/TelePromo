@@ -4,8 +4,8 @@ from enum import Enum
 
 class Vectorizers(object):
     class Categorys(Enum):
-        ELETRONICS = 'eletronics'
-        OTHERS = 'others'
+        ELETRONICS = "eletronics"
+        OTHERS = "others"
 
     eletronic_model: object
     categorys: Categorys
@@ -15,12 +15,12 @@ class Vectorizers(object):
         Load models from training TL_IDF
         """
         # Paths
-        #categorizer_model_path = kwargs.get('eletronic_model_path', 'trains/eletronic_train.tlp')
+        #categorizer_model_path = kwargs.get("eletronic_model_path", "trains/eletronic_train.tlp")
         self.categorys = self.Categorys
-        eletronic_model_path = kwargs.get('eletronic_model_path', 'trains/eletronic_train.tlp')
-        
+        eletronic_model_path = kwargs.get("eletronic_model_path", "trains/eletronic_train.tlp")
+
         # Pickle load serialized trained model
-        self.eletronic_model = pickle.load(open(eletronic_model_path, 'rb'))
+        self.eletronic_model = pickle.load(open(eletronic_model_path, "rb"))
         self.funcs = {
             self.categorys.ELETRONICS.value: self.eletronic_model
         }
@@ -29,8 +29,8 @@ class Vectorizers(object):
         """
         Get a name and return a category
         """
-        return 'diversified'
-    
+        return "diversified"
+
     def select_vectorizer(self, category: str):
         """
         Get a category and returns model function
@@ -44,7 +44,7 @@ class Vectorizers(object):
             tf_idf = vectorizer.transform(product_name.split())
             feature_names = vectorizer.get_feature_names_out()
             result = [word for word in feature_names if sum(tf_idf[:, vectorizer.vocabulary_[word]].toarray())]
-        
+
         else:
             best_result = []
             for category_obj in self.categorys:
@@ -55,10 +55,10 @@ class Vectorizers(object):
                 result = [word for word in feature_names if sum(tf_idf[:, vectorizer.vocabulary_[word]].toarray())]
                 if len(result) > len(best_result):
                     best_result = result
-            
+
             result = best_result
 
         if result == []:
             result = product_name.split()
-        
+
         return result

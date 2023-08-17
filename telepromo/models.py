@@ -20,16 +20,16 @@ class Wished(object):
     Wish object to use in PyMongo
     """
     tags: list
-    category: Literal['eletronics', None]
+    category: Literal["eletronics", None]
     num_wishs: int
     links: List[str]
     users: List[str]
 
     def __init__(self, **kwargs) -> None:
-        self.tags = kwargs.get('tags')
-        self.category = kwargs.get('category')
+        self.tags = kwargs.get("tags")
+        self.category = kwargs.get("category")
         self.num_wishs = 0
-        self.links = kwargs.get('link')
+        self.links = kwargs.get("link")
         self.users = []
 
 class Price:
@@ -52,7 +52,7 @@ class Price:
             if self.price == __value.price:
                 if self.url == __value.url:
                     return True
-        
+
         return False
 
 class Product(object):
@@ -67,13 +67,13 @@ class Product(object):
     sents: List[Price]
 
     def __init__(self, **kwargs) -> None:
-        self.raw_name = kwargs.get('raw_name')
-        self.tags = kwargs.get('tags')
-        self.category = kwargs.get('category')
-        self.price = kwargs.get('price')
-        self.history = kwargs.get('history')
-        self.sents = kwargs.get('sents', [])
-        
+        self.raw_name = kwargs.get("raw_name")
+        self.tags = kwargs.get("tags")
+        self.category = kwargs.get("category")
+        self.price = kwargs.get("price")
+        self.history = kwargs.get("history")
+        self.sents = kwargs.get("sents", [])
+
     def get_history(self) -> list[Price]:
         return [Price(**items) for items in self.history]
 
@@ -83,17 +83,17 @@ class Product(object):
     def avarage(self) -> float:
         values = [float(value.price) for value in self.get_history()]
         return sum(values)/len(values)
-    
+
     def verify_in_history(self, new_price: dict | Price) -> bool:
         if type(new_price) is dict:
             new_price = Price(**new_price)
-        
+
         return new_price in self.get_history()
 
     def verify_get_in_sents(self, new_price: dict | Price) -> bool:
         if type(new_price) is dict:
             new_price = Price(**new_price)
-        
+
         try:
             return self.get_sents().index(new_price)
         except:
@@ -101,7 +101,7 @@ class Product(object):
 
 class Links(object):
     """
-    Link objects to store in PyMongo the URL's that we get products
+    Link objects to store in PyMongo the URL"s that we get products
     """
     name: str
     links: dict
@@ -109,10 +109,10 @@ class Links(object):
     last: str # in datetime %d/%m/%y %H:%M
 
     def __init__(self, **kwargs) -> None:
-        self.name = kwargs.get('name')
-        self.links = kwargs.get('links')
-        self.repeat = kwargs.get('repeat')
+        self.name = kwargs.get("name")
+        self.links = kwargs.get("links")
+        self.repeat = kwargs.get("repeat")
         self.last = None
-  
+
 #class MyMetrics(object):
-#    product_user_alerts: 
+#    product_user_alerts:
