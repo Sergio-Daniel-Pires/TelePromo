@@ -1,6 +1,6 @@
 from base import Bot
 
-class EstanteVirtual(Bot):
+class EstanteVirtual (Bot):
     async def get_prices (self, **kwargs):
         page = self.page
         await page.goto(kwargs.get("link"))

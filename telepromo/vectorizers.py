@@ -2,8 +2,8 @@ import pickle
 from utils import normalize_str
 from enum import Enum
 
-class Vectorizers(object):
-    class Categorys(Enum):
+class Vectorizers (object):
+    class Categorys (Enum):
         ELETRONICS = "eletronics"
         OTHERS = "others"
 
@@ -19,7 +19,8 @@ class Vectorizers(object):
         eletronic_model_path = kwargs.get("eletronic_model_path", "trains/eletronic_train.tlp")
 
         # Pickle load serialized trained model
-        self.eletronic_model = pickle.load(open(eletronic_model_path, "rb"))
+        # self.eletronic_model = pickle.load(open(eletronic_model_path, "rb"))
+        self.eletronic_model = None
         self.funcs = {
             self.categorys.ELETRONICS.value: self.eletronic_model
         }
@@ -37,8 +38,13 @@ class Vectorizers(object):
         return self.funcs[category]
 
     def extract_tags (self, raw_product_name: str, category: str) -> list:
+        # Cutted function because vectorizer is not good (not enough data)
+
         product_name = normalize_str(raw_product_name)
-        if category is not "diversified":
+
+        return product_name.split()
+
+        if category != "diversified":
             vectorizer = self.select_vectorizer(category)
             tf_idf = vectorizer.transform(product_name.split())
             feature_names = vectorizer.get_feature_names_out()

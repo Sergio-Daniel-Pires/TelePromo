@@ -1,7 +1,7 @@
-from base import Bot
+from bots.base import Bot
 
 
-class Kabum(Bot):
+class Kabum (Bot):
     async def get_prices (self, **kwargs):
         page = self.page
 

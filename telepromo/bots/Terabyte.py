@@ -1,7 +1,7 @@
 from base import Bot
 
 
-class Terabyte(Bot):
+class Terabyte (Bot):
     # Funcionando
     async def get_prices (self, **kwargs):
         page = self.page
@@ -43,6 +43,6 @@ if __name__ == "__main__":
     bot = Terabyte()
     import asyncio
     results = asyncio.run(
-        bot.run(headless=True, link="https://www.terabyteshop.com.br")
+        bot.run(headless=False, link="https://www.terabyteshop.com.br")
     )
     print(results)

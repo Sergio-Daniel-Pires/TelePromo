@@ -14,9 +14,9 @@ RUN pip install pipenv && pipenv install --dev --system --deploy
 # RUN apt-get install python-sklearn
 RUN apt-get update
 RUN apt-get -y install fontconfig
-COPY /fonts ~/.fonts
-COPY /fonts /usr/shared/fonts
-COPY /fonts /usr/share/fonts/truetype
+# COPY /fonts ~/.fonts
+# COPY /fonts /usr/shared/fonts
+# COPY /fonts /usr/share/fonts/truetype
 # refresh system font cache
 RUN fc-cache -f -v
 

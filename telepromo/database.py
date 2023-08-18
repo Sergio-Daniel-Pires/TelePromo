@@ -1,8 +1,7 @@
 from pymongo import MongoClient
 
 from bots.base import LINKS
-from models import Wished, User, Price
-from utils import DAYS_IN_YEAR, MINUTES_IN_DAY, SECONDS_IN_DAY
+from models import Wished, User, Price, Product
 
 class Database:
     """
@@ -13,7 +12,7 @@ class Database:
     database = dict
 
     def __init__ (self):
-        self.client = MongoClient("mongodb", 27017)
+        self.client = MongoClient("mongodb://localhost", 27017)
         self.database = self.client["telepromo"]
 
         # Initialize collections
@@ -25,12 +24,18 @@ class Database:
         links = self.database["links"].find({})
         return links
 
-    def find_product (self, tags: list):
-        product = self.database["products"].find_one({"tags": {"$all": tags}})
-        return product
+    def find_product (self, product: Product):
+        # Corrigir fix
+        print(product.tags)
+        dict_product = self.database["products"].find_one_and_replace(
+            { "tags": { "$all": product.tags } },
+            product.__dict__,
+            upsert=True,
+            return_document=True
+        )
 
-    def new_product (self, product: dict):
-        self.database["products"].insert_one(product)
+        new_product = bool(len(dict_product["history"]))
+        return new_product, dict_product
 
     def update_product_history (
         self, tags: list, price: float, new_price: dict | Price = None

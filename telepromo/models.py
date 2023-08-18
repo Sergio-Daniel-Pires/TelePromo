@@ -1,7 +1,7 @@
 from typing import Literal, List
 from typing import Optional
 
-from main import SECONDS_IN_DAY
+from utils import SECONDS_IN_DAY
 
 class User:
     """
@@ -46,7 +46,7 @@ class Price:
             self.__setattr__(kwarg, kwargs[kwarg])
 
     def __eq__ (self, __value: object) -> bool:
-        if abs((self.date - __value.date) // ) < 3:
+        if (self.date - __value.date) < SECONDS_IN_DAY * 3:
             if self.price == __value.price:
                 if self.url == __value.url:
                     return True

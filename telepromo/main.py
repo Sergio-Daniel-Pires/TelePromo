@@ -2,67 +2,79 @@ from database import Database
 from monitor import Monitoring
 from vectorizers import Vectorizers
 from telegram_bot import TelegramBot
+from graphs import GroupMetrics
 
 import asyncio
-from datetime import datetime
 import logging
+import time
 
-from utils import DAYS_IN_YEAR, MINUTES_IN_DAY
+from utils import DAYS_IN_YEAR, MINUTES_IN_DAY, SECONDS_IN_DAY, SECONDS_IN_HOUR
 
+def send_summary ():
+    ...
 
 async def verify_urls_price (monitor: Monitoring, current_obj: dict):
     url_list = current_obj["links"]
-    results = await monitor.prices_from_url(url_list)
-    new_prices = await monitor.verify_save_prices(results)
-    return new_prices
+    results = await monitor.prices_from_url(url_list)  # Get raw results from web scraping
+    new_metric = await monitor.verify_save_prices(results)  # Get real metrics from last scanq
 
+    return new_metric
 
-async def continuos_verify_price (db: Database, monitor: Monitoring):
-    semaphore = asyncio.Semaphore(4)
-    for day in range(DAYS_IN_YEAR):
-        day_date = datetime.today()
-        day_results = {
-            "Ofertas alertadas": 0,
-            "Enviadas no grupo": 0,
-            "Produtos novos": 0
-        }
+async def continuous_verify_price (db: Database, monitor: Monitoring):
+    semaphore = asyncio.Semaphore(1)
 
+    daily_metrics = GroupMetrics()
+    for _ in range(DAYS_IN_YEAR):
+        diary_stamp = int(time.time())
+
+        hourly_results = GroupMetrics()
         for minute in range(MINUTES_IN_DAY):
-            minute_date = datetime.today()
+            start_date = int(time.time())
             tasks = []
             links_cursor = db.get_links()
+
             for current_obj in links_cursor:
                 async with semaphore:
                     tasks.append(asyncio.ensure_future(verify_urls_price(monitor, current_obj)))
 
-            results = await asyncio.gather(*tasks)
+            logging.info("Starting requests...")
+            for future_task in asyncio.as_completed(tasks):
+                new_metric = await future_task
+                hourly_results.add_or_update_one(new_metric)
 
             # Verifica se o dia acabou e tem que enviar relatorio
-            date_now = datetime.today()
-            if (date_now - day_date).days > 0:
+            finish_date = int(time.time())
+            if (finish_date - diary_stamp) >= SECONDS_IN_DAY:
                 break
-            # Caso as consultas sejam mais rapido que um minuto, espera 1 minuto
-            if (date_now - minute_date).seconds < 60:
-                remaining = 60 - (date_now - minute_date).seconds
-                logging.warning(f"Runned too fast, waiting {remaining} seconds.")
-                await asyncio.sleep(remaining)
+
+            # Espera uma hora antes das proximas chamadas
+            elapsed = finish_date - start_date
+            remaining = SECONDS_IN_HOUR - elapsed
+            logging.warning(f"Runned too fast, waiting {remaining} seconds.")
+
+            if elapsed < SECONDS_IN_HOUR:
+                time.sleep(remaining)
+
+        print(hourly_results)
+        send_summary()
 
 async def main ():
     db = Database()
     vectorizers = Vectorizers()
     telegram_bot = TelegramBot(
-        database = db,
-        vectorizer = vectorizers
+        database=db,
+        vectorizer=vectorizers
     )
     monitor = Monitoring(
-        retry = 3,
-        database = db,
-        telegram_bot = telegram_bot,
-        vectorizer = vectorizers
+        retry=3,
+        database=db,
+        telegram_bot=telegram_bot,
+        vectorizer=vectorizers
     )
 
-    await telegram_bot.iniatilize()
-    await continuos_verify_price(db, monitor)
+    # await telegram_bot.iniatilize()
+    await continuous_verify_price(db, monitor)
+
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()

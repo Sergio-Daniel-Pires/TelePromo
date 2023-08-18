@@ -1,7 +1,7 @@
 from base import Bot
 
 
-class Pichau(Bot):
+class Pichau (Bot):
     # Funcionando
     async def scroll_to_bottom (self, page) -> None:
         for i in range(8):

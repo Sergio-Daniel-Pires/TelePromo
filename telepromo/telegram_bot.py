@@ -38,7 +38,7 @@ END = ConversationHandler.END
 ) = map(chr, range(12, 16))
 
 # Monitoring funcs
-class TelegramBot():
+class TelegramBot ():
     application: Application
     add_product_conv: ConversationHandler
     category_conv: ConversationHandler
@@ -243,9 +243,11 @@ class TelegramBot():
         user_id = context._user_id
         wish_list = self.database.user_wishes(user_id)
         if len(wish_list) == 0:
-            list_wish_text = ("Você ainda não tem alertas!\n"
-                "Crie alertas na aba "Adicionar produtos"!"
+            list_wish_text = (
+                "Você ainda não tem alertas!\n"
+                "Crie alertas na aba 'Adicionar produtos'!"
             )
+
         else:
             list_wish_text = "Seus alertas:"
             for index, wish_obj in enumerate(wish_list):
@@ -265,7 +267,7 @@ class TelegramBot():
         index = int(option[1:])
         wish_obj = self.database.user_wishes(user_id)[index]
         product_text = (
-            f"Produto: {wish_obj["name"]}"
+            f"Produto: {wish_obj['name']}"
         )
         buttons = [
             [InlineKeyboardButton(text="Remover", callback_data=f"R{index}")],

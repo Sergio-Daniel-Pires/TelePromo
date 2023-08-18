@@ -10,7 +10,7 @@ services:
       - ./db:/data/db
     networks:
       - network
-  
+
   # prometheus:
   #   image: prom/prometheus:latest
   #   container_name: prometheus
@@ -26,7 +26,7 @@ services:
   #     - 9090
   #   networks:
   #     - network
-    
+
   telepromo:
     depends_on: [mongodb]
     container_name: tp01
