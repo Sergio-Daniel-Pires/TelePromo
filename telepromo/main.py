@@ -13,10 +13,11 @@ from utils import DAYS_IN_YEAR, MINUTES_IN_DAY, SECONDS_IN_DAY, SECONDS_IN_HOUR
 def send_summary ():
     ...
 
-async def verify_urls_price (monitor: Monitoring, current_obj: dict):
-    url_list = current_obj["links"]
+async def verify_urls_price (monitor: Monitoring, link_obj: dict):
+    url_list = link_obj["links"]
+    category = link_obj["name"]
     results = await monitor.prices_from_url(url_list)  # Get raw results from web scraping
-    new_metric = await monitor.verify_save_prices(results)  # Get real metrics from last scanq
+    new_metric = await monitor.verify_save_prices(results, category)  # Get real metrics from last scan
 
     return new_metric
 
@@ -33,13 +34,14 @@ async def continuous_verify_price (db: Database, monitor: Monitoring):
             tasks = []
             links_cursor = db.get_links()
 
-            for current_obj in links_cursor:
+            for link_obj in links_cursor:
                 async with semaphore:
-                    tasks.append(asyncio.ensure_future(verify_urls_price(monitor, current_obj)))
+                    tasks.append(asyncio.ensure_future(verify_urls_price(monitor, link_obj)))
 
             logging.info("Starting requests...")
             for future_task in asyncio.as_completed(tasks):
                 new_metric = await future_task
+                print(new_metric)
                 hourly_results.add_or_update_one(new_metric)
 
             # Verifica se o dia acabou e tem que enviar relatorio
@@ -55,8 +57,7 @@ async def continuous_verify_price (db: Database, monitor: Monitoring):
             if elapsed < SECONDS_IN_HOUR:
                 time.sleep(remaining)
 
-        print(hourly_results)
-        send_summary()
+
 
 async def main ():
     db = Database()
@@ -72,7 +73,7 @@ async def main ():
         vectorizer=vectorizers
     )
 
-    # await telegram_bot.iniatilize()
+    await telegram_bot.iniatilize()
     await continuous_verify_price(db, monitor)
 
 

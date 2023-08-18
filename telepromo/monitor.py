@@ -44,19 +44,20 @@ class Monitoring (object):
                 bot_instance = bot_class()
                 results = await bot_instance.run(link=link)
                 all_results += results
-            except:
+
+            except Exception as exc:
+                logging.error(f"bot error: {exc}")
                 continue
 
         return all_results
 
-    async def verify_save_prices (self, results: dict):
+    async def verify_save_prices (self, results: dict, category: str):
         today = int(time.time())
 
-        category = "eletronicos"
         new_metric = Metrics(category)
 
         for result in results:
-            name = result["name"]
+            name = result["name"].replace("\n", " ")
 
             # Get only relevant names from raw name
             tags = self.vectorizer.extract_tags(name, category)
@@ -64,22 +65,25 @@ class Monitoring (object):
                 continue
 
             price = result["price"]
-            if not isinstance(price, float):
+            old_price = result["old_price"]
+            if not isinstance(price, float) or not isinstance(old_price, float):
                 logging.error("Mismatch price error (not valid float), skipping...")
 
             is_promo = result.get("promo", None)
             is_afiliate = result.get("is_afiliate", None)
             url = result.get("url", "")
             new_price = Price(
-                date=today, price=price, is_promo=is_promo, is_afiliate=is_afiliate, url=url
+                date=today, price=price, old_price=old_price, is_promo=is_promo,
+                is_afiliate=is_afiliate, url=url
             )
 
             product_obj = Product(
                 raw_name=name, category=category, tags=tags,
                 price=price, history=[new_price.__dict__]
             )
-            new_product, product_dict = self.database.find_product(product_obj)
-            if new_product:
+
+            old_product, product_dict = self.database.find_product(product_obj)
+            if not old_product:
                 new_metric.update_values(news=1)
 
             # New product
@@ -90,17 +94,20 @@ class Monitoring (object):
                 self.database.update_product_history(tags, price, new_price)
                 new_metric.update_values(offers=1)
 
-            else:
-                logging.warning("Nao eh preco novo")  # Mas alguem pode ainda nao ter recebido essa oferta
+            """ Parte de Gerar wish e tals não ta funcionando
+            # else:
+            #    logging.warning("Nao eh preco novo")  # Mas alguem pode ainda nao ter recebido essa oferta
 
             all_wishes = self.database.find_all_wishes(tags)
+            if all_wishes:
+                print(list(all_wishes))
             all_chats_id = {chat_id for wish_list in all_wishes for chat_id in wish_list["users"]}
 
             avarage_price = product_obj.avarage()
             sent_idx = product_obj.verify_get_in_sents(new_price)
 
             if (
-                new_product or new_price.price < avarage_price * (1-MINIMUN_DISCOUNT) or
+                old_product or new_price.price < avarage_price * (1-MINIMUN_DISCOUNT) or
                 (
                     None not in (sent_idx, all_wishes) and
                     set(product_obj.sents[sent_idx]["users"]) <= all_chats_id
@@ -125,7 +132,9 @@ class Monitoring (object):
                 self.database.update_product_sents(tags, current_sent, sent_idx)
 
             else:
-                logging.warning(f"Nao eh oferta boa (Minimo: {MINIMUN_DISCOUNT * 100}%)")
+                # logging.warning(f"Nao eh oferta boa (Minimo: {MINIMUN_DISCOUNT * 100}%)")
+                ...
+            """
 
         return new_metric
 

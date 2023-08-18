@@ -1,4 +1,4 @@
-from base import Bot
+from .base import Bot
 
 class EstanteVirtual (Bot):
     async def get_prices (self, **kwargs):

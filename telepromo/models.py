@@ -36,6 +36,7 @@ class Wished:
 class Price:
     date: int  # time stamp
     price: float
+    old_price: float
     is_promo: bool
     is_afiliate: bool
     url: str

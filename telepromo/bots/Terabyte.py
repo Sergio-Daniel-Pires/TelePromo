@@ -1,4 +1,4 @@
-from base import Bot
+from .base import Bot
 
 
 class Terabyte (Bot):
@@ -15,7 +15,7 @@ class Terabyte (Bot):
             if not (await product.query_selector(".prod-new-price")):
                 continue
 
-            name_and_details = await product.inner_html()
+            name_and_details = await product.inner_text()
             name = name_and_details.split(",")[0].strip()
             details = name_and_details.split("\n")[0].strip()
 
@@ -43,6 +43,6 @@ if __name__ == "__main__":
     bot = Terabyte()
     import asyncio
     results = asyncio.run(
-        bot.run(headless=False, link="https://www.terabyteshop.com.br")
+        bot.run(headless=True, link="https://www.terabyteshop.com.br")
     )
     print(results)

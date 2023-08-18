@@ -99,6 +99,9 @@ class Bot (ABC):
 
     @classmethod
     def format_money (cls, value: str) -> float:
+        if type(value) in (int, float):
+            return value
+
         clean_string = value
         try:
             clean_string = re.sub(r"[^\d.,]", "", clean_string)
@@ -108,7 +111,7 @@ class Bot (ABC):
             return float(clean_string)
 
         except Exception:
-            logging.error(f"{clean_string} is not a valid float!")
+            logging.error(f"'{clean_string}' ({type(clean_string)}) is not a valid float!")
             return None
 
     def new_product (

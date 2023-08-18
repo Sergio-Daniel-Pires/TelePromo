@@ -1,4 +1,5 @@
-from base import Bot
+from .base import Bot
+import asyncio
 
 
 class Pichau (Bot):
@@ -65,7 +66,6 @@ class Pichau (Bot):
 
 if __name__ == "__main__":
     bot = Pichau()
-    import asyncio
     results = asyncio.run(
         bot.run(headless=True, link="https://www.pichau.com.br")
     )

@@ -25,8 +25,6 @@ class Database:
         return links
 
     def find_product (self, product: Product):
-        # Corrigir fix
-        print(product.tags)
         dict_product = self.database["products"].find_one_and_replace(
             { "tags": { "$all": product.tags } },
             product.__dict__,
@@ -34,8 +32,8 @@ class Database:
             return_document=True
         )
 
-        new_product = bool(len(dict_product["history"]))
-        return new_product, dict_product
+        old_product = bool(len(dict_product["history"]) - 1)
+        return old_product, dict_product
 
     def update_product_history (
         self, tags: list, price: float, new_price: dict | Price = None
@@ -134,12 +132,12 @@ class Database:
     def new_wish (self, **kwargs):
         tags = kwargs.get("tags")
         user = kwargs.get("user")
-        wish_obj = self.find_wish(tags)
+        wish_obj = self.verify_user_wish(tags)
 
         if wish_obj is None:
             self.database["wishes"].insert_one(Wished(**kwargs).__dict__)
 
-        wish_obj = self.find_wish(tags)
+        wish_obj = self.verify_user_wish(tags)
 
         if user in wish_obj["users"]:
             return False
@@ -152,15 +150,18 @@ class Database:
     def remove_wish (self, **kwargs):
         tags = kwargs.get("tags")
         user = kwargs.get("user")
-        wish_obj = self.find_wish(tags)
+        wish_obj = self.verify_user_wish(tags)
 
         if wish_obj is not None:
             self.database["wishes"].update_one(
                 {"tags": {"$all": tags}}, {"$pull": {"users": user}}
             )
 
-    def find_wish (self, tags: list):
+    def verify_user_wish (self, tags: list):
         return self.database["wishes"].find_one({"tags": {"$all": tags}})
 
     def find_all_wishes (self, tags: list):
-        return self.database["wishes"].find({"tags": {"$in": tags}})
+        return self.database["wishes"].find(
+            {"wish_list.tags": {"$in": tags}},
+            {"wish_list.$": 1}
+        )
