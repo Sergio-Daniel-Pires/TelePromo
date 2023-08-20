@@ -6,6 +6,8 @@ MINUTES_IN_DAY = 1440
 SECONDS_IN_HOUR = 3600
 SECONDS_IN_DAY = 86400
 
+STOP_WORDS = ( "com", "mais", "de", "vendido", "vendidos", "de:" )
+
 def normalize_str (text: str) -> str:
     text = text.lower()
     text = re.sub(r"[ãâáàä]", "a", text)

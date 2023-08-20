@@ -1,5 +1,6 @@
 from .base import Bot
 import asyncio
+import logging
 
 
 class Pichau (Bot):
@@ -33,20 +34,36 @@ class Pichau (Bot):
         all_products = await second_section.query_selector_all("a[data-cy='list-product']")
 
         for product_selector in all_products:
-            name_and_details = await (
+            name_and_details = (await (
                 await product_selector.query_selector("h2")
-            ).inner_text()
-            name, details = name_and_details.split(",", 1)
+            ).inner_text()).split(",", 1)
+            name = details = name_and_details[0]
+            if len(name_and_details) > 1:
+                details = name_and_details[1]
 
-            price = await (
+            price = None
+            obj_price = (
                 await product_selector.query_selector(".MuiCardContent-root > div :nth-child(3)")
-            ).inner_text()
+            )
+            if obj_price:
+                price = await obj_price.inner_text()
 
-            old_price = await (
-                await product_selector.query_selector(
-                    ".MuiCardContent-root > div :nth-child(1) > div > div > s"
-                )
-            ).inner_text()
+            old_price = None
+            obj_old_price = await product_selector.query_selector(
+                ".MuiCardContent-root > div :nth-child(1) > div > div > s"
+            )
+
+            if obj_old_price:
+                old_price = await obj_old_price.inner_text()
+
+            if old_price is not None and price is None:
+                price = old_price
+
+            elif old_price is None and price is not None:
+                old_price = price
+
+            if None in (price, old_price):
+                continue
 
             url = await product_selector.get_attribute("href")
 
@@ -57,6 +74,7 @@ class Pichau (Bot):
             else:
                 img = None
 
+            logging.debug(__class__, old_price, price)
             all_results.append(
                 self.new_product(name, price, url, details, old_price, img)
             )

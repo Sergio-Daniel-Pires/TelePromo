@@ -58,7 +58,6 @@ async def continuous_verify_price (db: Database, monitor: Monitoring):
                 time.sleep(remaining)
 
 
-
 async def main ():
     db = Database()
     vectorizers = Vectorizers()

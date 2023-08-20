@@ -1,5 +1,5 @@
 from .base import Bot
-
+import logging
 
 class MadeiraMadeira (Bot):
     """
@@ -24,18 +24,21 @@ class MadeiraMadeira (Bot):
                 "span.cav--c-gNPphv-hyvuql-weight-bold"
             )).inner_text()
 
-            old_price = await product_obj.query_selector(
+            old_price = price
+
+            obj_old_price = await product_obj.query_selector(
                 "span.cav--c-gNPphv.cav--c-gNPphv-iihFNG-size-bodyXSmall"
                 ".cav--c-gNPphv-ijymXNu-css"
             )
-            if old_price:
-                old_price = (await old_price.inner_text())[3:]
+            if obj_old_price:
+                old_price = (await obj_old_price.inner_text())[3:]
 
             url = await product_obj.get_attribute("href")
             img = await (
                 await product_obj.query_selector("img.main-img")
             ).get_attribute("src")
 
+            logging.debug(__class__, old_price, price)
             results.append(
                 self.new_product(name, price, url, details, old_price, img)
             )

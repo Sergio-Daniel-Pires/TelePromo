@@ -57,6 +57,7 @@ class Kabum (Bot):
                 url_name = name_to_url(name_and_details)
                 url = f"https://www.kabum.com.br/produto/{offer['codigo']}/{url_name}"
 
+                logging.debug(__class__, old_price, price)
                 results.append(
                     self.new_product(name, price, url, details, old_price, img)
                 )

@@ -4,6 +4,7 @@ import logging
 from playwright.async_api import async_playwright
 from playwright.async_api._generated import BrowserType, Page
 from abc import abstractmethod, ABC
+import traceback
 
 LINKS = [
     {
@@ -112,6 +113,7 @@ class Bot (ABC):
 
         except Exception:
             logging.error(f"'{clean_string}' ({type(clean_string)}) is not a valid float!")
+            logging.error(traceback.format_exc())
             return None
 
     def new_product (

@@ -1,6 +1,7 @@
 import importlib
 import logging
 import time
+import traceback
 
 from models import Product, Price
 from graphs import Metrics
@@ -43,10 +44,12 @@ class Monitoring (object):
                 bot_class = getattr(bot_module, bot_name)
                 bot_instance = bot_class()
                 results = await bot_instance.run(link=link)
+                logging.warning(f"{bot_name}: {len(results)} found products.")
                 all_results += results
 
             except Exception as exc:
-                logging.error(f"bot error: {exc}")
+                logging.error(f"bot {bot_name} error: {exc}")
+                logging.error(traceback.format_exc())
                 continue
 
         return all_results
@@ -66,8 +69,14 @@ class Monitoring (object):
 
             price = result["price"]
             old_price = result["old_price"]
-            if not isinstance(price, float) or not isinstance(old_price, float):
+
+            if old_price is None:
+                old_price = price
+
+            if not isinstance(price, (float, int)) or not isinstance(old_price, (float, int)):
+                print(price, old_price)
                 logging.error("Mismatch price error (not valid float), skipping...")
+                logging.error(traceback.format_exc())
 
             is_promo = result.get("promo", None)
             is_afiliate = result.get("is_afiliate", None)

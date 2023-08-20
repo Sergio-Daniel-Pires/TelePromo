@@ -1,4 +1,5 @@
 from .base import Bot
+import logging
 
 
 class Terabyte (Bot):
@@ -24,7 +25,7 @@ class Terabyte (Bot):
             ).split(" ")[1]
 
             obj_old_price = (await (await product.query_selector(".prod-old-price")).inner_text())
-            old_price = None
+            old_price = price
             if obj_old_price:
                 old_price = obj_old_price.split(" ")[2]
 
@@ -34,6 +35,7 @@ class Terabyte (Bot):
 
             img = await (await product.query_selector("img")).get_attribute("src")
 
+            logging.debug(__class__, old_price, price)
             all_results.append(self.new_product(name, price, url, details, old_price, img))
 
         return all_results
@@ -43,6 +45,6 @@ if __name__ == "__main__":
     bot = Terabyte()
     import asyncio
     results = asyncio.run(
-        bot.run(headless=True, link="https://www.terabyteshop.com.br")
+        bot.run(headless=True, link="https://www.terabyteshop.com.br/promocoes")
     )
     print(results)

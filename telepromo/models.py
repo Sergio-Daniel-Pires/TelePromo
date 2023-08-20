@@ -1,5 +1,6 @@
 from typing import Literal, List
 from typing import Optional
+import bson
 
 from utils import SECONDS_IN_DAY
 
@@ -8,11 +9,13 @@ class User:
     User object to verify list of wishes and if is premium
     """
     _id: str
-    wish_list: List[dict]
+    name: str
+    wish_list: dict[str, str]
     premium: bool
 
-    def __init__ (self, user_id, **kwargs) -> None:
+    def __init__ (self, user_id: str, user_name: str, **kwargs) -> None:
         self._id = user_id
+        self.name = user_name
         self.wish_list = kwargs.get("wish_list", [])
         self.premium = kwargs.get("premium", False)
 
@@ -20,18 +23,18 @@ class Wished:
     """
     Wish object to use in PyMongo
     """
-    tags: list
-    category: Literal["eletronics", None]
+    _id: bson.ObjectId
+    tags: list[str]
+    category: Literal["eletronics", "lardocelar"]
+    users: dict[int: float | int]
     num_wishs: int
-    links: List[str]
-    users: List[str]
 
     def __init__ (self, **kwargs) -> None:
+        self._id = bson.ObjectId()
         self.tags = kwargs.get("tags")
         self.category = kwargs.get("category")
+        self.users = kwargs.get("users", {})
         self.num_wishs = 0
-        self.links = kwargs.get("link")
-        self.users = []
 
 class Price:
     date: int  # time stamp
@@ -39,8 +42,10 @@ class Price:
     old_price: float
     is_promo: bool
     is_afiliate: bool
+    sent: bool
     url: str
-    users: Optional[list[str]]
+    to_sent: list[str]
+    out_price_range: list[str]
 
     def __init__ (self, **kwargs) -> None:
         for kwarg in kwargs:

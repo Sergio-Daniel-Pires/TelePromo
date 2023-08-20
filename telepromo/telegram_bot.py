@@ -11,9 +11,6 @@ from telegram.ext import (
     filters,
 )
 
-import logging
-
-import asyncio
 from database import Database
 from vectorizers import Vectorizers
 
@@ -21,12 +18,12 @@ from vectorizers import Vectorizers
 SELECTING_ACTION, SELECTING_CATEGORY, TO_ADD, TO_LIST = map(chr, range(4))
 
 # Second
-ELETRONICS, OTHERS = map(chr, range(4, 6))
+ELETRONICS, LAR, OTHERS = map(chr, range(4, 7))  # max 4 to 10 (6)
 
 # Third
-ANOTHER_PRODUCT = map(chr, range(7, 8))
+ANOTHER_PRODUCT = map(chr, range(10, 11))
 
-STOPPING, SHOWING, TYPING, LISTING,  = map(chr, range(10, 14))
+STOPPING, SHOWING, TYPING, LISTING, PRICING = map(chr, range(11, 16))
 
 END = ConversationHandler.END
 
@@ -35,7 +32,7 @@ END = ConversationHandler.END
     DONATION,
     SHOW_DONATE,
     RETURN
-) = map(chr, range(12, 16))
+) = map(chr, range(16, 20))
 
 # Monitoring funcs
 class TelegramBot ():
@@ -49,7 +46,9 @@ class TelegramBot ():
     def __init__ (self, **kwargs) -> None:
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
-        self.application = Application.builder().token("6163736593:AAFRImnBRLZ3Ra7TRuECvoBT1juJQmNxUv8").build()
+        self.application = Application.builder().token(
+            "6163736593:AAFRImnBRLZ3Ra7TRuECvoBT1juJQmNxUv8"
+        ).build()
 
         self.list_product_conv = ConversationHandler(
             entry_points={
@@ -61,7 +60,9 @@ class TelegramBot ():
                     CallbackQueryHandler(self.product_details, pattern="^W\d*$")
                 ],
                 SHOWING: [
-                    CallbackQueryHandler(self.return_to_product_list, pattern="^" + str(RETURN) + "$|^R\d*$")
+                    CallbackQueryHandler(
+                        self.return_to_product_list, pattern="^" + str(RETURN) + "$|^R\d*$"
+                    )
                 ]
             },
             fallbacks={
@@ -71,12 +72,16 @@ class TelegramBot ():
                 SELECTING_ACTION: SELECTING_ACTION
             }
         )
+
         self.add_product_conv = ConversationHandler(
             entry_points={
-                CallbackQueryHandler(self.ask_for_product, pattern="^" + str(ELETRONICS) + "$|^" + str(OTHERS) + "$")
+                CallbackQueryHandler(
+                    self.ask_for_product, pattern="^" + str(ELETRONICS) + "$|^" + str(OTHERS) + "$"
+                )
             },
             states={
-                TYPING: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_product)],
+                TYPING: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_price)],
+                PRICING: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_product)],
                 ANOTHER_PRODUCT: [
                     CallbackQueryHandler(self.return_to_start, pattern="^" + str(END) + "$"),
                     CallbackQueryHandler(self.select_category, pattern="^" + str(RETURN) + "$")
@@ -92,9 +97,12 @@ class TelegramBot ():
                 SELECTING_ACTION: SELECTING_ACTION
             }
         )
+
         self.category_conv = ConversationHandler(
             entry_points={
-                CallbackQueryHandler(self.select_category, pattern="^" + str(SELECTING_CATEGORY) + "$")
+                CallbackQueryHandler(
+                    self.select_category, pattern="^" + str(SELECTING_CATEGORY) + "$"
+                )
             },
             states={
                 TO_ADD: [self.add_product_conv]
@@ -143,9 +151,9 @@ class TelegramBot ():
         )
 
         buttons = [
-            [InlineKeyboardButton(text="Fortalecer Breja", callback_data=str(DONATION))],
-            [InlineKeyboardButton(text="Novo produto", callback_data=str(SELECTING_CATEGORY))],
-            [InlineKeyboardButton(text="Lista de Desejos", callback_data=str(TO_LIST))],
+            [InlineKeyboardButton(text="🍻 - Fortalecer Breja", callback_data=str(DONATION))],
+            [InlineKeyboardButton(text="➕ - Novo produto", callback_data=str(SELECTING_CATEGORY))],
+            [InlineKeyboardButton(text="📝 - Lista de Desejos", callback_data=str(TO_LIST))],
         ]
         keyboard = InlineKeyboardMarkup(buttons)
 
@@ -154,21 +162,28 @@ class TelegramBot ():
             await update.callback_query.edit_message_text(text=text, reply_markup=keyboard)
         else:
             await update.message.reply_text(
-                "Olá, eu sou o Bot TelePromoBr, estou aqui para te ajudar a acompanhar preços/promoções de produtos"
+                (
+                    "Olá, eu sou o Bot TelePromoBr, "
+                    "estou aqui para te ajudar a acompanhar preços/promoções de produtos"
+                )
             )
             await update.message.reply_text(text=text, reply_markup=keyboard)
 
         context.user_data[START] = False
+
         return SELECTING_ACTION
 
     async def donation (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         """View the donations method and return"""
-        donation_text = ("O criador desse bot é o Sérgio Pires @github\n"
-                        "Caso queira me pagar uma breja, pode mandar neses PIX:\n"
-                        "**MEUPIX**"
-                        )
+        donation_text = (
+            "O criador desse bot é o Sérgio Pires @github\n"
+            "Caso queira me pagar uma breja, pode mandar neses PIX:\n\n"
+            "telepromobr@gmail.com"
+        )
+
         button = InlineKeyboardButton(text="Inicio", callback_data=str(END))
         keyboard = InlineKeyboardMarkup.from_button(button)
+
         await update.callback_query.answer()
         await update.callback_query.edit_message_text(text=donation_text, reply_markup=keyboard)
 
@@ -181,14 +196,19 @@ class TelegramBot ():
         select_category_text = (
             "Selecione a categoria do produto:\n"
         )
+
         buttons = [
             [InlineKeyboardButton(text="Eletronicos", callback_data=str(ELETRONICS))],
             [InlineKeyboardButton(text="Outros", callback_data=str(OTHERS))],
             [InlineKeyboardButton(text="Inicio", callback_data=str(END))]
         ]
+
         keyboard = InlineKeyboardMarkup(buttons)
+
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text(text=select_category_text, reply_markup=keyboard)
+        await update.callback_query.edit_message_text(
+            text=select_category_text, reply_markup=keyboard
+        )
 
         return TO_ADD
 
@@ -196,44 +216,71 @@ class TelegramBot ():
         new_product_text = (
             "Escreva abaixo o nome do produto:\n"
         )
+
         button = InlineKeyboardButton(text="Voltar", callback_data=str(RETURN))
         keyboard = InlineKeyboardMarkup.from_button(button)
+
         await update.callback_query.edit_message_text(text=new_product_text, reply_markup=keyboard)
 
         context.user_data[START] = True
 
         return TYPING
 
-    async def save_product (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    async def save_price (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         # Salvar produto no Mongo
         user_id = update.message.from_user["id"]
+        user_name = update.message.from_user["first_name"]
         product = update.message.text
-        tag_list = self.vectorizer.extract_tags(product)
+        tag_list = self.vectorizer.extract_tags(product, "")
 
-        status, message = self.database.insert_new_user_wish(user_id, tag_list, product, self.vectorizer.categorys.ELETRONICS.value)
+        status, message = self.database.insert_new_user_wish(
+            user_id, user_name, tag_list, product, "eletronics"
+        )
+
+        if status:
+            product_ask = (
+                "Adicionado! Deseja definir um valor maximo para o produto?:\n"
+                "(APENAS NUMEROS, Digite '0' se não quiser limitar o preco):\n"
+            )
+            keyboard = None
+
+        else:
+            if message == "Usuário só pode ter até 10 wishes":
+                product_ask = message
+
+                button = InlineKeyboardButton(text="Inicio", callback_data=str(END))
+
+            else:
+                product_ask = (
+                    message + "\n"
+                    "Deseja tentar novamente?"
+                )
+                button = InlineKeyboardButton(text="Sim", callback_data=str(RETURN))
+
+            keyboard = InlineKeyboardMarkup.from_button(button)
+
+        await update.message.reply_text(text=product_ask, reply_markup=keyboard)
+
+        return PRICING
+
+    async def save_product (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        value = update.message.text
+        user_id = update.message.from_user["id"]
+
+        self.database.update_last(user_id, value)
+
+        end_text = "Finalizado! Gostaria de adicionar mais?"
+        if not value.isnumeric():
+            end_text = "Valor inválido.\nGostaria de adicionar mais?"
+
         buttons = [
             [InlineKeyboardButton(text="Sim", callback_data=str(RETURN))],
             [InlineKeyboardButton(text="Nao", callback_data=str(END))]
         ]
-        # Adicionado com sucesso
-        if status:
-            ask_new_product = (
-                    "Adicionado! Deseja adicionais mais?"
-                )
-        else:
-            if message == "Usuário só pode ter até 10 wishes":
-                ask_new_product = message
 
-                buttons = [
-                    [InlineKeyboardButton(text="Inicio", callback_data=str(END))]
-                ]
-            else:
-                ask_new_product = (
-                    message + "\n"
-                    "Deseja tentar novamente?"
-                )
+        # Adicionado com sucesso
         keyboard = InlineKeyboardMarkup(buttons)
-        await update.message.reply_text(text=ask_new_product, reply_markup=keyboard)
+        await update.message.reply_text(text=end_text, reply_markup=keyboard)
 
         return ANOTHER_PRODUCT
 
@@ -241,21 +288,33 @@ class TelegramBot ():
         buttons = []
 
         user_id = context._user_id
-        wish_list = self.database.user_wishes(user_id)
-        if len(wish_list) == 0:
+
+        user_obj = self.database.find_user(user_id)
+
+        if not user_obj:
             list_wish_text = (
-                "Você ainda não tem alertas!\n"
-                "Crie alertas na aba 'Adicionar produtos'!"
+                "Você ainda não usou os serviços!\n"
             )
 
         else:
-            list_wish_text = "Seus alertas:"
-            for index, wish_obj in enumerate(wish_list):
-                name = wish_obj["name"]
-                buttons.append([InlineKeyboardButton(text=name, callback_data=f"W{index}")])
+            user_name = user_obj["name"]
+            wish_list = self.database.user_wishes(user_id, user_name)
+
+            if len(wish_list) == 0:
+                list_wish_text = (
+                    "Você ainda não tem alertas!\n"
+                    "Crie alertas na aba 'Adicionar produtos'!"
+                )
+
+            else:
+                list_wish_text = "Seus alertas:"
+                for index, wish_obj in enumerate(wish_list):
+                    name = wish_obj["name"]
+                    buttons.append([InlineKeyboardButton(text=name, callback_data=f"W{index}")])
 
         buttons.append([InlineKeyboardButton(text="Inicio", callback_data=str(END))])
         keyboard = InlineKeyboardMarkup(buttons)
+
         await update.callback_query.answer()
         await update.callback_query.edit_message_text(text=list_wish_text, reply_markup=keyboard)
 
@@ -265,9 +324,13 @@ class TelegramBot ():
         option = update.callback_query.data
         user_id = context._user_id
         index = int(option[1:])
-        wish_obj = self.database.user_wishes(user_id)[index]
+        user_obj = self.database.find_user(user_id)
+        user_name = user_obj["name"]
+
+        wish_obj = self.database.user_wishes(user_id, user_name)[index]
         product_text = (
-            f"Produto: {wish_obj['name']}"
+            f"Produto: {wish_obj['name']}\n"
+            f"Maximo: {wish_obj['max']}"
         )
         buttons = [
             [InlineKeyboardButton(text="Remover", callback_data=f"R{index}")],
@@ -280,13 +343,15 @@ class TelegramBot ():
 
         return SHOWING
 
-    async def return_to_product_list (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    async def return_to_product_list (
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ) -> str:
         option = update.callback_query.data
+
         if option.startswith("R") and option[1:].isdigit():
             user_id = context._user_id
             index = int(option[1:])
-            wish_obj = self.database.user_wishes(user_id)[index]
-            self.database.remove_user_wish(user_id, wish_obj=wish_obj)
+            self.database.remove_user_wish(user_id, index)
 
         await self.list_wishs(update, context)
 
@@ -301,10 +366,16 @@ class TelegramBot ():
     async def stop (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """End Conversation by command."""
         await update.message.reply_text("Okay, bye.")
+
         return SELECTING_CATEGORY
 
 async def main ():
-    telebot = TelegramBot("")
+    db = Database()
+    vectorizers = Vectorizers()
+    telebot = TelegramBot(
+        database=db,
+        vectorizer=vectorizers
+    )
     await telebot.iniatilize()
 
     while True:
