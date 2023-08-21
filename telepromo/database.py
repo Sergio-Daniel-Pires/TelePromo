@@ -1,4 +1,5 @@
 from pymongo import MongoClient
+import bson
 
 from bots.base import LINKS
 from models import Wished, User, Price, Product
@@ -25,40 +26,32 @@ class Database:
         return links
 
     def find_product (self, product: Product):
-        dict_product = self.database["products"].find_one_and_replace(
-            { "tags": { "$all": product.tags } },
-            product.__dict__,
+        dict_product = self.database["products"].find_one_and_update(
+            { "tags": product.tags },
+            { "$setOnInsert": product.__dict__ },
             upsert=True,
             return_document=True
         )
 
-        old_product = bool(len(dict_product["history"]) - 1)
+        old_product = not bool(len(dict_product["history"]) - 1)
         return old_product, dict_product
 
     def update_product_history (
-        self, tags: list, price: float, new_price: dict | Price = None
+        self, tags: list, new_price: dict | Price = None
     ) -> None:
+        if type(new_price) is dict:
+            new_price = Price(**new_price)
+
+        price = new_price.price
+
         self.database["products"].update_one({"tags": {"$all": tags}}, {"$set": {"price": price}})
-        if new_price is not None:
-            if type(new_price) is Price:
-                new_price = new_price.__dict__
 
-            self.database["products"].update_one(
-                {"tags": {"$all": tags}}, {"$push": {"history": new_price}}
-            )
+        if type(new_price) is Price:
+            new_price = new_price.__dict__
 
-    def update_product_sents (self, tags: list, new_sent: Price | dict, index: bool):
-        if type(new_sent) is Price:
-            new_sent = new_sent.__dict__
-
-        if index is not None:
-            self.database["products"].update_one(
-                {"tags": {"$all": tags}}, {"$set": {f"sents.{index}": new_sent}}
-            )
-        else:
-            self.database["products"].update_one(
-                {"tags": {"$all": tags}}, {"$push": {"sents": new_sent}}
-            )
+        self.database["products"].update_one(
+            {"tags": {"$all": tags}}, {"$push": {"history": new_price}}
+        )
 
     def find_user (self, user_id: int):
         return self.database["users"].find_one({ "_id": user_id })
@@ -173,7 +166,7 @@ class Database:
 
     def find_all_wishes (self, tags: list):
         return self.database["wishes"].find(
-            { "wish_list.tags": { "$in": tags } }
+            { "tags": { "$in": tags } }
         )
 
     def update_last (self, user_id: int, value: str):
@@ -196,3 +189,24 @@ class Database:
             { "$set": { f"users.{user_id}": value } }
         )
 
+    def verify_or_add_price (
+        self, tags: list[str], new_price: dict | Price, product_obj: Product
+    ) -> tuple[bool, Price, int]:
+        history = product_obj.get_history()
+        is_new_price = new_price not in history
+
+        if is_new_price:
+            self.update_product_history(tags, new_price)
+            return is_new_price, new_price, len(history)
+
+        else:
+            index = history.index(new_price)
+            return is_new_price, history[index], index
+
+    def add_new_user_in_price_sent (
+        self, product_id: bson.ObjectId(), price_idx: int, user_id: int, result: bool
+    ) -> None:
+        self.database["products"].update_one(
+            { "_id": product_id },
+            { "$set": { f"history.{price_idx}.users_sent.{user_id}": result } }
+        )

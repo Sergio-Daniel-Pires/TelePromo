@@ -68,27 +68,10 @@ class Monitoring (object):
                 continue
 
             price = result["price"]
-            old_price = result["old_price"]
-
-            if old_price is None:
-                old_price = price
-
-            if not isinstance(price, (float, int)) or not isinstance(old_price, (float, int)):
-                print(price, old_price)
-                logging.error("Mismatch price error (not valid float), skipping...")
-                logging.error(traceback.format_exc())
-
-            is_promo = result.get("promo", None)
-            is_afiliate = result.get("is_afiliate", None)
-            url = result.get("url", "")
-            new_price = Price(
-                date=today, price=price, old_price=old_price, is_promo=is_promo,
-                is_afiliate=is_afiliate, url=url
-            )
 
             product_obj = Product(
                 raw_name=name, category=category, tags=tags,
-                price=price, history=[new_price.__dict__]
+                price=price, history=[]
             )
 
             old_product, product_dict = self.database.find_product(product_obj)
@@ -97,53 +80,77 @@ class Monitoring (object):
 
             # New product
             product_obj = Product(**product_dict)
-            old_price = product_obj.verify_in_history(new_price)
 
-            if not old_price:
-                self.database.update_product_history(tags, price, new_price)
+            # Create New Price or Find
+            old_price = result["old_price"]
+
+            if old_price is None:
+                old_price = price
+
+            if not isinstance(price, (float, int)) or not isinstance(old_price, (float, int)):
+                logging.error("Mismatch price error (not valid float), skipping...")
+                logging.error(traceback.format_exc())
+
+            is_promo = result.get("promo", None)
+            if is_promo is None and (old_price < price):
+                is_promo = True
+
+            is_affiliate = result.get("is_affiliate", None)
+            url = result.get("url", "")
+
+            new_price = Price(
+                date=today, price=price, old_price=old_price, is_promo=is_promo,
+                is_affiliate=is_affiliate, url=url
+            )
+
+            is_new_price, price_obj, price_index = self.database.verify_or_add_price(
+                tags, new_price, product_obj
+            )
+
+            if is_new_price:
                 new_metric.update_values(offers=1)
 
-            """ Parte de Gerar wish e tals não ta funcionando
-            # else:
-            #    logging.warning("Nao eh preco novo")  # Mas alguem pode ainda nao ter recebido essa oferta
-
             all_wishes = self.database.find_all_wishes(tags)
-            if all_wishes:
-                print(list(all_wishes))
-            all_chats_id = {chat_id for wish_list in all_wishes for chat_id in wish_list["users"]}
 
-            avarage_price = product_obj.avarage()
-            sent_idx = product_obj.verify_get_in_sents(new_price)
+            for wish in all_wishes:
+                users_wish = wish["users"]
 
-            if (
-                old_product or new_price.price < avarage_price * (1-MINIMUN_DISCOUNT) or
-                (
-                    None not in (sent_idx, all_wishes) and
-                    set(product_obj.sents[sent_idx]["users"]) <= all_chats_id
-                )
-            ):
+                if len(users_wish) == 0:
+                    continue
 
-                if sent_idx is None:
-                    current_sent = new_price
-                    current_sent.users = []
+                list_user_tags = wish["tags"]
+                set_user_tags = set(list_user_tags)
 
-                else:
-                    current_sent = product_obj.get_sents()[sent_idx]
+                needed = 0.5    # Need at least half of tags to send
+                tam_user_tags = len(list_user_tags)
 
-                for wish_list in all_wishes:
-                    for chat_id in wish_list["users"]:
+                qtd_equals = len(set_user_tags.intersection(tags))
 
-                        if chat_id not in current_sent.users:  # Send to user and to sents list
-                            current_sent.users.append(chat_id)
-                            await self.send_to_user(chat_id, result)
-                            new_metric.update_values(sent=1)
+                prct_equal = qtd_equals / tam_user_tags
 
-                self.database.update_product_sents(tags, current_sent, sent_idx)
+                if prct_equal < needed:
+                    continue
 
-            else:
-                # logging.warning(f"Nao eh oferta boa (Minimo: {MINIMUN_DISCOUNT * 100}%)")
-                ...
-            """
+                for user_id in users_wish:
+
+                    # Caso onde ja foi enviado aquela oferta para o usuario
+                    if user_id in price_obj.users_sent and price_obj.users_sent[user_id] == 1:
+                        continue
+
+                    user_price = users_wish[user_id]
+
+                    if price > user_price * 1.03 and user_price != 0:
+                        self.database.add_new_user_in_price_sent(
+                            product_obj._id, price_index, user_id, 0
+                        )
+                        continue
+
+                    await self.send_to_user(user_id, result)
+
+                    self.database.add_new_user_in_price_sent(
+                        product_obj._id, price_index, user_id, 1
+                    )
+                    new_metric.update_values(sent=1)
 
         return new_metric
 

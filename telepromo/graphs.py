@@ -15,10 +15,10 @@ class Metrics:
     def __repr__(self) -> str:
         return (
             "New offers:    {}\n"
-            "New procuts:   {}\n"
+            "New products:   {}\n"
             "Sent products: {}"
 
-        ).format(self.offers, self.sent, self.news)
+        ).format(self.offers, self.news, self.sent)
 
     def update_values (self, offers: int = 0, sent: int = 0, news: int = 0):
         self.offers += offers

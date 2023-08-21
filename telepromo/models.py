@@ -1,5 +1,4 @@
-from typing import Literal, List
-from typing import Optional
+from typing import Literal
 import bson
 
 from utils import SECONDS_IN_DAY
@@ -37,19 +36,30 @@ class Wished:
         self.num_wishs = 0
 
 class Price:
-    date: int  # time stamp
+    _id: bson.ObjectId()
+    date: int           # time stamp
     price: float
     old_price: float
     is_promo: bool
-    is_afiliate: bool
-    sent: bool
+    is_affiliate: bool
     url: str
-    to_sent: list[str]
-    out_price_range: list[str]
+    users_sent: dict[int, int]
 
-    def __init__ (self, **kwargs) -> None:
-        for kwarg in kwargs:
-            self.__setattr__(kwarg, kwargs[kwarg])
+    def __init__ (
+        self, date: int, price: float, old_price: float, is_promo: bool, is_affiliate: bool,
+        url: str, users_sent: dict[int, int] = {}, _id: bson.ObjectId = None
+    ) -> None:
+        if not isinstance(_id, bson.ObjectId):
+            _id = bson.ObjectId()
+
+        self._id = _id
+        self.date = date
+        self.price = price
+        self.old_price = old_price
+        self.is_promo = is_promo
+        self.is_affiliate = is_affiliate
+        self.url = url
+        self.users_sent = users_sent
 
     def __eq__ (self, __value: object) -> bool:
         if (self.date - __value.date) < SECONDS_IN_DAY * 3:
@@ -63,20 +73,26 @@ class Product:
     """
     Product object to use in PyMongof
     """
+    _id: bson.ObjectId()
     raw_name: str
     tags: list
     category: str
-    price: str
-    history: List[Price]
-    sents: List[Price]
+    price: float
+    history: list[Price]
 
-    def __init__ (self, **kwargs) -> None:
-        self.raw_name = kwargs.get("raw_name")
-        self.tags = kwargs.get("tags")
-        self.category = kwargs.get("category")
-        self.price = kwargs.get("price")
-        self.history = kwargs.get("history")
-        self.sents = kwargs.get("sents", [])
+    def __init__ (
+        self, raw_name: str, tags: list, category: str, price: float,
+        history: list[Price] = [], _id: bson.ObjectId = None
+    ) -> None:
+        if not isinstance(_id, bson.ObjectId):
+            _id = bson.ObjectId()
+
+        self._id = _id
+        self.raw_name = raw_name
+        self.tags = tags
+        self.category = category
+        self.price = price
+        self.history = history
 
     def get_history (self) -> list[Price]:
         return [Price(**items) for items in self.history]
@@ -87,22 +103,6 @@ class Product:
     def avarage (self) -> float:
         values = [float(value.price) for value in self.get_history()]
         return sum(values)/len(values)
-
-    def verify_in_history (self, new_price: dict | Price) -> bool:
-        if type(new_price) is dict:
-            new_price = Price(**new_price)
-
-        return new_price in self.get_history()
-
-    def verify_get_in_sents (self, new_price: dict | Price) -> bool:
-        if type(new_price) is dict:
-            new_price = Price(**new_price)
-
-        try:
-            return self.get_sents().index(new_price)
-
-        except Exception:
-            return None
 
 class Links:
     """
