@@ -1,8 +1,8 @@
-from pymongo import MongoClient
 import bson
-
 from bots.base import LINKS
-from models import Wished, User, Price, Product
+from models import Price, Product, User, Wished
+from pymongo import MongoClient
+
 
 class Database:
     """

@@ -1,5 +1,6 @@
 import logging
 
+
 class Metrics:
     category: str
     offers: int
@@ -54,7 +55,6 @@ class GroupMetrics:
 
         except Exception:
             category.append(new_metric)
-
 
     def show_all (self):
         ...

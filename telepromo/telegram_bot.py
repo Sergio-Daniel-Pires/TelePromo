@@ -1,17 +1,10 @@
 import asyncio
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import (
-    Application,
-    CallbackQueryHandler,
-    CommandHandler,
-    ContextTypes,
-    ConversationHandler,
-    MessageHandler,
-    filters,
-)
-
 from database import Database
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
+                          ContextTypes, ConversationHandler, MessageHandler,
+                          filters)
 from vectorizers import Vectorizers
 
 # First Level
@@ -57,11 +50,11 @@ class TelegramBot ():
             states={
                 LISTING: [
                     CallbackQueryHandler(self.return_to_start, pattern="^" + str(END) + "$"),
-                    CallbackQueryHandler(self.product_details, pattern="^W\d*$")
+                    CallbackQueryHandler(self.product_details, pattern=r"^W\d*$")
                 ],
                 SHOWING: [
                     CallbackQueryHandler(
-                        self.return_to_product_list, pattern="^" + str(RETURN) + "$|^R\d*$"
+                        self.return_to_product_list, pattern="^" + str(RETURN) + r"$|^R\d*$"
                     )
                 ]
             },

@@ -1,7 +1,8 @@
 from typing import Literal
-import bson
 
+import bson
 from utils import SECONDS_IN_DAY
+
 
 class User:
     """

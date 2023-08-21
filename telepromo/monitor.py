@@ -3,11 +3,11 @@ import logging
 import time
 import traceback
 
-from models import Product, Price
-from graphs import Metrics
 from database import Database
-from vectorizers import Vectorizers
+from graphs import Metrics
+from models import Price, Product
 from telegram_bot import TelegramBot
+from vectorizers import Vectorizers
 
 MINIMUN_DISCOUNT = 0.05
 

@@ -1,6 +1,7 @@
-from .base import Bot
 import asyncio
 import logging
+
+from .base import Bot
 
 
 class Pichau (Bot):

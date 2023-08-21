@@ -1,10 +1,10 @@
-import re
 import logging
+import re
+import traceback
+from abc import ABC, abstractmethod
 
 from playwright.async_api import async_playwright
 from playwright.async_api._generated import BrowserType, Page
-from abc import abstractmethod, ABC
-import traceback
 
 LINKS = [
     {

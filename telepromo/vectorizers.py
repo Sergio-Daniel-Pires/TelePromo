@@ -1,6 +1,7 @@
-import pickle
-from utils import normalize_str
 from enum import Enum
+
+from utils import normalize_str
+
 
 class Vectorizers (object):
     class Categorys (Enum):
@@ -16,7 +17,7 @@ class Vectorizers (object):
         """
         # Paths
         self.categorys = self.Categorys
-        eletronic_model_path = kwargs.get("eletronic_model_path", "trains/eletronic_train.tlp")
+        _ = kwargs.get("eletronic_model_path", "trains/eletronic_train.tlp")
 
         # Pickle load serialized trained model
         # self.eletronic_model = pickle.load(open(eletronic_model_path, "rb"))
@@ -48,7 +49,11 @@ class Vectorizers (object):
             vectorizer = self.select_vectorizer(category)
             tf_idf = vectorizer.transform(product_name.split())
             feature_names = vectorizer.get_feature_names_out()
-            result = [word for word in feature_names if sum(tf_idf[:, vectorizer.vocabulary_[word]].toarray())]
+            result = [
+                word for word in feature_names if sum(
+                    tf_idf[:, vectorizer.vocabulary_[word]].toarray()
+                )
+            ]
 
         else:
             best_result = []
@@ -57,7 +62,12 @@ class Vectorizers (object):
                 vectorizer = self.select_vectorizer(category)
                 tf_idf = vectorizer.transform(product_name.split())
                 feature_names = vectorizer.get_feature_names_out()
-                result = [word for word in feature_names if sum(tf_idf[:, vectorizer.vocabulary_[word]].toarray())]
+                result = [
+                    word for word in feature_names if sum(
+                        tf_idf[:, vectorizer.vocabulary_[word]].toarray()
+                    )
+                ]
+
                 if len(result) > len(best_result):
                     best_result = result
 

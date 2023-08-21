@@ -1,14 +1,14 @@
-from database import Database
-from monitor import Monitoring
-from vectorizers import Vectorizers
-from telegram_bot import TelegramBot
-from graphs import GroupMetrics
-
 import asyncio
 import logging
 import time
 
+from database import Database
+from graphs import GroupMetrics
+from monitor import Monitoring
+from telegram_bot import TelegramBot
 from utils import DAYS_IN_YEAR, MINUTES_IN_DAY, SECONDS_IN_DAY, SECONDS_IN_HOUR
+from vectorizers import Vectorizers
+
 
 def send_summary ():
     ...
@@ -16,20 +16,24 @@ def send_summary ():
 async def verify_urls_price (monitor: Monitoring, link_obj: dict):
     url_list = link_obj["links"]
     category = link_obj["name"]
-    results = await monitor.prices_from_url(url_list)  # Get raw results from web scraping
-    new_metric = await monitor.verify_save_prices(results, category)  # Get real metrics from last scan
+
+    # Get raw results from web scraping
+    results = await monitor.prices_from_url(url_list)
+
+    # Get real metrics from last scan
+    new_metric = await monitor.verify_save_prices(results, category)
 
     return new_metric
 
 async def continuous_verify_price (db: Database, monitor: Monitoring):
     semaphore = asyncio.Semaphore(1)
 
-    daily_metrics = GroupMetrics()
+    _ = GroupMetrics()
     for _ in range(DAYS_IN_YEAR):
         diary_stamp = int(time.time())
-
         hourly_results = GroupMetrics()
-        for minute in range(MINUTES_IN_DAY):
+
+        for _ in range(MINUTES_IN_DAY):
             start_date = int(time.time())
             tasks = []
             links_cursor = db.get_links()

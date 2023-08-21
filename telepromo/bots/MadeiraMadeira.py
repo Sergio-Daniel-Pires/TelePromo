@@ -1,5 +1,7 @@
-from .base import Bot
 import logging
+
+from .base import Bot
+
 
 class MadeiraMadeira (Bot):
     """

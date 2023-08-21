@@ -1,8 +1,11 @@
-from .base import Bot
-import requests
 import logging
-import traceback
 import re
+import traceback
+
+import requests
+
+from .base import Bot
+
 
 def name_to_url(text: str) -> str:
     # Substituir espaços por hífens

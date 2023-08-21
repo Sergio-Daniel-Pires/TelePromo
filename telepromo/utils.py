@@ -1,4 +1,5 @@
 import re
+
 from nltk.util import ngrams
 
 DAYS_IN_YEAR = 365
