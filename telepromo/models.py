@@ -1,4 +1,5 @@
-from typing import Literal
+from typing import Any, Literal
+from promo_messages import UserMessages
 
 import bson
 from utils import SECONDS_IN_DAY
@@ -103,6 +104,9 @@ class Product:
 
     def avarage (self) -> float:
         values = [float(value.price) for value in self.get_history()]
+        if len(values) == 0:
+            return 0
+
         return sum(values)/len(values)
 
 class Links:
@@ -119,3 +123,51 @@ class Links:
         self.links = kwargs.get("links")
         self.repeat = kwargs.get("repeat")
         self.last = None
+
+import re
+
+class FormatPromoMessage:
+    """
+    Object that formats user message
+    """
+    result: dict
+    avarage: float
+    prct_equal: float
+
+    @classmethod
+    def parse_msg (
+        cls, result: dict[str, Any], avarage: float, prct_equal: float
+    ):
+        brand = result["brand"]
+        product_name = result["name"]
+        details = result["details"].strip()
+        price = result["price"]
+        url = result["url"]
+        img = result["img"]
+
+        if product_name == details:
+            details = ""
+
+        product_desc = f"{product_name}, {details}"
+        if prct_equal == 1:
+            output = UserMessages.ALL_TAGS_MATCHED.format(
+                brand, product_desc, price, img
+            )
+
+        elif price < avarage:
+            output = UserMessages.AVG_LOW.format(
+                brand, product_desc, price, avarage, img
+            )
+
+        else:
+            output = UserMessages.MATCHED_OFFER.format(
+                brand, product_desc, price, img
+            )
+
+        # escape special chars:
+        for char in (".", "!", "(", ")", "-", "_", "+"):
+            output = output.replace(char, rf"\{char}")
+
+        output += "[]({})".format(img)  # Insert not escaped image
+
+        return output

@@ -58,8 +58,8 @@ async def continuous_verify_price (db: Database, monitor: Monitoring):
             remaining = SECONDS_IN_HOUR - elapsed
             logging.warning(f"Runned too fast, waiting {remaining} seconds.")
 
-            if elapsed < SECONDS_IN_HOUR:
-                await asyncio.sleep(remaining)
+            while int(time.time()) - start_date < SECONDS_IN_HOUR:
+                await asyncio.sleep(10)
 
 
 async def main ():

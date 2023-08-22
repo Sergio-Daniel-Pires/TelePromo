@@ -5,7 +5,7 @@ import traceback
 
 from database import Database
 from graphs import Metrics
-from models import Price, Product
+from models import Price, Product, FormatPromoMessage
 from telegram_bot import TelegramBot
 from vectorizers import Vectorizers
 
@@ -43,7 +43,7 @@ class Monitoring (object):
                 bot_module = importlib.import_module(f"bots.{bot_name}")
                 bot_class = getattr(bot_module, bot_name)
                 bot_instance = bot_class()
-                results = await bot_instance.run(link=link)
+                results = await bot_instance.run(link=link, brand=bot_name)
                 logging.warning(f"{bot_name}: {len(results)} found products.")
                 all_results += results
 
@@ -68,6 +68,7 @@ class Monitoring (object):
                 continue
 
             price = result["price"]
+            old_price = result["old_price"]
 
             product_obj = Product(
                 raw_name=name, category=category, tags=tags,
@@ -80,12 +81,6 @@ class Monitoring (object):
 
             # New product
             product_obj = Product(**product_dict)
-
-            # Create New Price or Find
-            old_price = result["old_price"]
-
-            if old_price is None:
-                old_price = price
 
             if not isinstance(price, (float, int)) or not isinstance(old_price, (float, int)):
                 logging.error("Mismatch price error (not valid float), skipping...")
@@ -107,6 +102,10 @@ class Monitoring (object):
                 tags, new_price, product_obj
             )
 
+            avarage = price
+            if old_product:
+                avarage = product_obj.avarage()
+
             if is_new_price:
                 new_metric.update_values(offers=1)
 
@@ -121,7 +120,10 @@ class Monitoring (object):
                 list_user_tags = wish["tags"]
                 set_user_tags = set(list_user_tags)
 
-                needed = 0.5    # Need at least half of tags to send
+                needed = 0.5                    # Need at least half of tags to send
+                if len(list_user_tags) == 2:    # Special case, only two tags
+                    needed = 1.0
+
                 tam_user_tags = len(list_user_tags)
 
                 qtd_equals = len(set_user_tags.intersection(tags))
@@ -145,7 +147,8 @@ class Monitoring (object):
                         )
                         continue
 
-                    await self.send_to_user(user_id, result)
+                    beautiful_msg = FormatPromoMessage.parse_msg(result, avarage, prct_equal)
+                    await self.send_to_user(user_id, beautiful_msg)
 
                     self.database.add_new_user_in_price_sent(
                         product_obj._id, price_index, user_id, 1
@@ -160,6 +163,6 @@ class Monitoring (object):
 
         return new_price in self.get
 
-    async def send_to_user (self, chat_id: int, result: dict):
+    async def send_to_user (self, chat_id: int, offer_message: str):
 
-        await self.telegram_bot.send_message(chat_id, str(result))
+        await self.telegram_bot.send_message(chat_id, offer_message)

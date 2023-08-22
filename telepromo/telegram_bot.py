@@ -5,6 +5,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
                           ContextTypes, ConversationHandler, MessageHandler,
                           filters)
+from telegram.constants import ParseMode
 from vectorizers import Vectorizers
 
 # First Level
@@ -132,8 +133,10 @@ class TelegramBot ():
         await self.application.start()
         await self.application.updater.start_polling()
 
-    async def send_message (self, chat_id, text):
-        await self.application.bot.sendMessage(chat_id=chat_id, text=text)
+    async def send_message (self, chat_id: int, text: str):
+        await self.application.bot.sendMessage(
+            chat_id=chat_id, text=text, parse_mode=ParseMode.MARKDOWN_V2, disable_web_page_preview=True
+        )
 
     async def start (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         """Select an action: Donation, Finalize, List wishs, New Wish"""

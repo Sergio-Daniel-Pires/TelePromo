@@ -75,6 +75,7 @@ class Bot (ABC):
     link: str
     page: Page
     headless: bool
+    brand: str
     user_agent: str = (
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
         "(KHTML, like Gecko) Chrome/61.0.2935 Safari/537.36"
@@ -83,6 +84,7 @@ class Bot (ABC):
     async def run (self, **kwargs):
         headless = kwargs.get("headless", True)
         self.link = kwargs["link"]
+        self.brand = kwargs["brand"]
 
         async with async_playwright() as playwright:
             self.browser = await playwright.chromium.launch(
@@ -122,7 +124,7 @@ class Bot (ABC):
     ):
         product = {
             "name": name, "details": details, "price": price,
-            "old_price": old_price, "url": url, "img": img
+            "old_price": old_price, "url": url, "img": img, "brand": self.brand
         }
 
         for key in ( "price", "old_price" ):
