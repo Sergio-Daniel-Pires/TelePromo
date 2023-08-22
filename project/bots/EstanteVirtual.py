@@ -1,4 +1,4 @@
-from .base import Bot
+from project.bots.base import Bot
 
 
 class EstanteVirtual (Bot):

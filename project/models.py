@@ -1,8 +1,8 @@
 from typing import Any, Literal
-from promo_messages import UserMessages
+from project.promo_messages import UserMessages
 
 import bson
-from utils import SECONDS_IN_DAY
+from project.utils import SECONDS_IN_DAY
 
 
 class User:
@@ -99,9 +99,6 @@ class Product:
     def get_history (self) -> list[Price]:
         return [Price(**items) for items in self.history]
 
-    def get_sents (self) -> list[Price]:
-        return [Price(**items) for items in self.sents]
-
     def avarage (self) -> float:
         values = [float(value.price) for value in self.get_history()]
         if len(values) == 0:
@@ -123,8 +120,6 @@ class Links:
         self.links = kwargs.get("links")
         self.repeat = kwargs.get("repeat")
         self.last = None
-
-import re
 
 class FormatPromoMessage:
     """
@@ -151,23 +146,24 @@ class FormatPromoMessage:
         product_desc = f"{product_name}, {details}"
         if prct_equal == 1:
             output = UserMessages.ALL_TAGS_MATCHED.format(
-                brand, product_desc, price, img
+                brand, product_desc, price, img, url
             )
 
         elif price < avarage:
             output = UserMessages.AVG_LOW.format(
-                brand, product_desc, price, avarage, img
+                brand, product_desc, price, avarage, img, url
             )
 
         else:
             output = UserMessages.MATCHED_OFFER.format(
-                brand, product_desc, price, img
+                brand, product_desc, price, img, url
             )
 
         # escape special chars:
         for char in (".", "!", "(", ")", "-", "_", "+"):
             output = output.replace(char, rf"\{char}")
 
-        output += "[]({})".format(img)  # Insert not escaped image
+        output += f"[ \u206f ]({img})\n"
+        output += f"🛒 [\[COMPRAR NA {brand.upper()}\]]({url})\n"  # noqa W605
 
         return output

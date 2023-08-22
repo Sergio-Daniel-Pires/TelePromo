@@ -1,6 +1,6 @@
 from enum import Enum
 
-from utils import normalize_str
+from project.utils import normalize_str
 
 
 class Vectorizers (object):

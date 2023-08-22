@@ -84,7 +84,7 @@ class Bot (ABC):
     async def run (self, **kwargs):
         headless = kwargs.get("headless", True)
         self.link = kwargs["link"]
-        self.brand = kwargs["brand"]
+        self.brand = kwargs.get("brand", "Teste")
 
         async with async_playwright() as playwright:
             self.browser = await playwright.chromium.launch(

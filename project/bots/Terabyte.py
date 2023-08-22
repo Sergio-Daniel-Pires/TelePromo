@@ -1,6 +1,6 @@
 import logging
 
-from .base import Bot
+from project.bots.base import Bot
 
 
 class Terabyte (Bot):

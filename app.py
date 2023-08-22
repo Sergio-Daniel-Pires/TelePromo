@@ -2,12 +2,12 @@ import asyncio
 import logging
 import time
 
-from database import Database
-from graphs import GroupMetrics
-from monitor import Monitoring
-from telegram_bot import TelegramBot
-from utils import DAYS_IN_YEAR, MINUTES_IN_DAY, SECONDS_IN_DAY, SECONDS_IN_HOUR
-from vectorizers import Vectorizers
+from project.database import Database
+from project.graphs import GroupMetrics
+from project.monitor import Monitoring
+from project.telegram_bot import TelegramBot
+from project.utils import DAYS_IN_YEAR, MINUTES_IN_DAY, SECONDS_IN_DAY, SECONDS_IN_HOUR
+from project.vectorizers import Vectorizers
 
 
 def send_summary ():

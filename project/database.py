@@ -1,6 +1,6 @@
 import bson
-from bots.base import LINKS
-from models import Price, Product, User, Wished
+from project.bots.base import LINKS
+from project.models import Price, Product, User, Wished
 from pymongo import MongoClient
 
 
@@ -93,29 +93,34 @@ class Database:
         user = self.find_or_create_user(user_id, user_name)
         user_wish = user.get("wish_list")
         repeated = self.verify_repeated_wish(user_id, tag_list, wish_list=user_wish)
+        if len(tag_list) >= 15:
+            (False, "Nao pode ter mais que 15 palavras.")
 
-        if not repeated:
-            if len(user_wish) >= 10 and not user.get("premium", False):
-                return (False, "Usuário só pode ter até 10 wishes")
+        elif len(tag_list) == 0:
+            (False, "Poucas palavras ou invalidas.")
 
-            wish_id = self.new_wish(tags=tag_list, user=user_id, category=category)
-
-            self.database["users"].update_one(
-                { "_id": user_id },
-                { "$push": {
-                    "wish_list": {
-                        "wish_id": wish_id,
-                        "max": max_price,
-                        "name": product,
-                        "tags": tag_list
-                    }
-                }}
-            )
-
-            return (True, "Adicionado com sucesso!")
-
-        else:
+        elif repeated:
             return (False, f"Usuário já tem um alerta igual: {repeated}")
+
+        if len(user_wish) >= 10 and not user.get("premium", False):
+            return (False, "Usuário só pode ter até 10 wishes")
+
+        wish_id = self.new_wish(tags=tag_list, user=user_id, category=category)
+
+        self.database["users"].update_one(
+            { "_id": user_id },
+            { "$push": {
+                "wish_list": {
+                    "wish_id": wish_id,
+                    "max": max_price,
+                    "name": product,
+                    "tags": tag_list
+                }
+            }}
+        )
+
+        return (True, "Adicionado com sucesso!")
+
 
     def new_wish (self, **kwargs):
         tags = kwargs.get("tags")
@@ -169,15 +174,17 @@ class Database:
             { "tags": { "$in": tags } }
         )
 
-    def update_last (self, user_id: int, value: str):
+    def update_wish_by_index (self, user_id: int, value: str, index: str):
         value = int(value)
 
         user_obj = self.database["users"].find_one(
             { "_id": user_id }
         )
         wish_obj = user_obj["wish_list"]
-        index = len(wish_obj) - 1
-        wish_obj = wish_obj[-1]
+        if index == -1:
+            index = len(wish_obj) - 1
+
+        wish_obj = wish_obj[index]
         wish_id = wish_obj["wish_id"]
 
         self.database["users"].update_one(

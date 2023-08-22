@@ -4,7 +4,7 @@ import traceback
 
 import requests
 
-from .base import Bot
+from project.bots.base import Bot
 
 
 def name_to_url(text: str) -> str:
