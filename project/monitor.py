@@ -8,6 +8,7 @@ from project.graphs import Metrics
 from project.models import Price, Product, FormatPromoMessage
 from project.telegram_bot import TelegramBot
 from project.vectorizers import Vectorizers
+from project.metrics_collector import MetricsCollector
 
 MINIMUN_DISCOUNT = 0.05
 
@@ -18,12 +19,14 @@ class Monitoring (object):
     database: Database
     vectorizer: Vectorizers
     telegram_bot: TelegramBot
+    metrics_collector: MetricsCollector
 
     def __init__ (self, **kwargs):
         self.retry = kwargs.get("retrys")
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
         self.telegram_bot = kwargs.get("telegram_bot")
+        self.metrics_collector = kwargs.get("metrics_collector")
 
     async def prices_from_url (self, urls: list[dict]) -> list:
         """
@@ -46,10 +49,13 @@ class Monitoring (object):
                 results = await bot_instance.run(link=link, brand=bot_name)
                 logging.warning(f"{bot_name}: {len(results)} found products.")
                 all_results += results
+                self.metrics_collector.consume_site(bot_name, "Sucess", len(results))
 
             except Exception as exc:
+                self.metrics_collector.handle_error("load_bot_and_results")
                 logging.error(f"bot {bot_name} error: {exc}")
                 logging.error(traceback.format_exc())
+
                 continue
 
         return all_results
@@ -78,12 +84,13 @@ class Monitoring (object):
 
                 old_product, product_dict = self.database.find_product(product_obj)
                 if not old_product:
-                    new_metric.update_values(news=1)
+                    self.metrics_collector.handle_product("new_product")
 
                 # New product
                 product_obj = Product(**product_dict)
 
                 if not isinstance(price, (float, int)) or not isinstance(old_price, (float, int)):
+                    self.metrics_collector.handle_error("parse_price_to_float")
                     logging.error("Mismatch price error (not valid float), skipping...")
                     logging.error(traceback.format_exc())
 
@@ -108,7 +115,7 @@ class Monitoring (object):
                     avarage = product_obj.avarage()
 
                 if is_new_price:
-                    new_metric.update_values(offers=1)
+                    self.metrics_collector.handle_product("new_price")
 
                 all_wishes = self.database.find_all_wishes(tags)
 
@@ -154,8 +161,11 @@ class Monitoring (object):
                         self.database.add_new_user_in_price_sent(
                             product_obj._id, price_index, user_id, 1
                         )
-                        new_metric.update_values(sent=1)
+                        self.metrics_collector.handle_user_response()
+
+
             except Exception:
+                self.metrics_collector.handle_error("get_results")
                 logging.error(traceback.print_exc())
 
         return new_metric
@@ -167,5 +177,4 @@ class Monitoring (object):
         return new_price in self.get
 
     async def send_to_user (self, chat_id: int, offer_message: str):
-
         await self.telegram_bot.send_message(chat_id, offer_message)

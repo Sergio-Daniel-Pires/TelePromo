@@ -2,18 +2,24 @@ import bson
 from project.bots.base import LINKS
 from project.models import Price, Product, User, Wished
 from pymongo import MongoClient
+import os
+from project.metrics_collector import MetricsCollector
 
 
 class Database:
     """
     A class to manage connection with python and mongoDB
     """
+    client: MongoClient
+    database: dict
+    metrics_client: MetricsCollector
 
-    client = MongoClient
-    database = dict
-
-    def __init__ (self):
-        self.client = MongoClient("mongodb://localhost", 27017)
+    def __init__ (self, metrics_client: MetricsCollector):
+        self.metrics_client = metrics_client
+        self.client = MongoClient(
+            f"mongodb://{os.environ.get('MONGO_URL', 'localhost')}",
+            os.environ.get("MONGO_PORT", 27017)
+        )
         self.database = self.client["telepromo"]
 
         # Initialize collections

@@ -11,33 +11,45 @@ services:
     networks:
       - network
 
-  # prometheus:
-  #   image: prom/prometheus:latest
-  #   container_name: prometheus
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
-  #     - prometheus_data:/prometheus
-  #   command:
-  #     - '--config.file=/etc/prometheus/prometheus.yml'
-  #     - '--storage.tsdb.path=/prometheus'
-  #     - '--web.enable-lifecycle'
-  #   expose:
-  #     - 9090
-  #   networks:
-  #     - network
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - network
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"  # Mapeamento da porta do host para a porta do container
+    networks:
+      - network  # Nome da rede que o container vai usar
+    volumes:
+      - grafana-storage:/var/lib/grafana  # Volume para armazenar dados persistentes do Grafana
 
   telepromo:
-    depends_on: [mongodb]
+    depends_on: [mongodb, prometheus]
     container_name: tp01
+    environment:
+      MONGO_URL: "mongodb"
     build:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ./telepromo:/project
+      - .:/telepromo
+    ports:
+      - "9091:9091"
+    expose:
+      - 9091
     networks:
       - network
-    command: ['python3', '/project/main.py']
+    command: ['python3', 'app.py']
 
 networks:
   network:
+
+volumes:
+  grafana-storage:  # Definição do volume

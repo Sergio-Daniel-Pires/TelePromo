@@ -1,14 +1,15 @@
 import asyncio
 import logging
 import time
+from prometheus_client import start_http_server
 
 from project.database import Database
+from project.metrics_collector import MetricsCollector
 from project.graphs import GroupMetrics
 from project.monitor import Monitoring
 from project.telegram_bot import TelegramBot
 from project.utils import DAYS_IN_YEAR, MINUTES_IN_DAY, SECONDS_IN_DAY, SECONDS_IN_HOUR
 from project.vectorizers import Vectorizers
-
 
 def send_summary ():
     ...
@@ -63,17 +64,21 @@ async def continuous_verify_price (db: Database, monitor: Monitoring):
 
 
 async def main ():
-    db = Database()
+    metrics = MetricsCollector(9091)
+
+    db = Database(metrics)
     vectorizers = Vectorizers()
     telegram_bot = TelegramBot(
         database=db,
-        vectorizer=vectorizers
+        vectorizer=vectorizers,
+        metrics=metrics
     )
     monitor = Monitoring(
         retry=3,
         database=db,
-        telegram_bot=telegram_bot,
-        vectorizer=vectorizers
+        telegram_bot=None,
+        vectorizer=vectorizers,
+        metrics_collector=metrics
     )
 
     await telegram_bot.iniatilize()
