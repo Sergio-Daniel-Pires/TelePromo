@@ -1,5 +1,7 @@
-from project.bots.base import Bot
-
+try:
+    from project.bots.base import Bot
+except Exception:
+    from base import Bot
 
 class Nike (Bot):
     # Funcionando

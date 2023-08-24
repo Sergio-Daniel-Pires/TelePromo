@@ -230,7 +230,7 @@ class TelegramBot ():
 
         context.user_data[START] = True
         context.user_data[TYPING] = True
-        context.user_data[INDEX] = False
+        context.user_data[INDEX] = None
 
         return TYPING
 
@@ -291,7 +291,7 @@ class TelegramBot ():
         value = update.message.text
         user_id = update.message.from_user["id"]
 
-        if context.user_data.get(INDEX, False):
+        if context.user_data.get(INDEX, None) is not None:
             index = context.user_data[INDEX]
             end_text = "Editado!"
             button = InlineKeyboardButton(text="Voltar", callback_data=str(RETURN))

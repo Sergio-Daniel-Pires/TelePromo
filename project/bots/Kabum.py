@@ -4,7 +4,10 @@ import traceback
 
 import requests
 
-from project.bots.base import Bot
+try:
+    from project.bots.base import Bot
+except Exception:
+    from base import Bot
 
 
 def name_to_url(text: str) -> str:
@@ -30,7 +33,7 @@ class Kabum (Bot):
 
         api_link = (
             "https://b2lq2jmc06.execute-api.us-east-1.amazonaws.com/PROD/ofertas?&"
-            "campanha=BLACKNINJA&pagina=1&limite=100&"
+            "campanha=SEMANAGAMER&pagina=1&limite=1000&"
             "marcas=&ordem=&valor_min=&valor_max=&estrelas=&desconto_minimo="
             "&desconto_maximo=&dep=&sec=&vendedor_codigo=&string=&app=1"
         )
@@ -98,6 +101,6 @@ if __name__ == "__main__":
     bot = Kabum()
     import asyncio
     results = asyncio.run(
-        bot.run(headless=True, link="https://www.kabum.com.br/ofertas/BLACKNINJA")
+        bot.run(headless=True, link="https://www.kabum.com.br/ofertas/SEMANAGAMER")
     )
     print(results)

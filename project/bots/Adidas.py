@@ -1,7 +1,9 @@
 import logging
 
-from project.bots.base import Bot
-
+try:
+    from project.bots.base import Bot
+except Exception:
+    from base import Bot
 
 class Adidas (Bot):
     # Funcionando
@@ -11,7 +13,7 @@ class Adidas (Bot):
         all_results = []
 
         try:
-            await page.wait_for_selector("div.glass-product-card__assets")
+            await page.wait_for_selector("div.glass-product-card__assets", timeout=1000)
         except Exception:
             await page.screenshot(path="teste.jpg", full_page=True)
             raise Exception("")
@@ -33,7 +35,6 @@ class Adidas (Bot):
 
             logging.debug(__class__, old_price, price)
             all_results.append(self.new_product(name, price, url, details, old_price, img))
-            break
 
         return all_results
 

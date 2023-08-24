@@ -9,32 +9,34 @@ class MetricsCollector:
         self.port = port
 
         self.sites_returns_total = Counter(
-            "sites_returns_total", "Number of times each site was consumed and status",
+            "telepromo_sites_returns_total", "Number of times each site was consumed and status",
             labelnames=["site", "status"]
         )
 
         self.product_counter = Counter(
-            "product_counter", "New products or prices",
+            "telepromo_product_counter", "New products or prices",
             labelnames=["product_status"]
         )
 
         self.errors_counter = Counter(
-            "application_errors_total", "Number of errors in different application stages",
+            "telepromo_application_errors_total", "Number of errors in different application stages",
             labelnames=["stage"]
         )
 
         self.user_requests_total = Counter(
-            "user_requests_total", "Number of requests made by users",
+            "telepromo_user_requests_total", "Number of requests made by users",
             labelnames=["type"]
         )
 
         self.user_sents_total = Counter(
-            "user_sents_total", "Number of responses to users"
+            "telepromo_user_sents_total", "Number of responses to users"
         )
 
         self.total_new_users = Counter(
-            "total_new_users", "Number of new users registered"
+            "telepromo_total_new_users", "Number of new users registered"
         )
+
+        self.start_metrics_server()
 
     def start_metrics_server(self):
         start_http_server(addr="telepromo", port=self.port)

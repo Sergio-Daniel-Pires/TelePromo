@@ -11,9 +11,6 @@ from project.telegram_bot import TelegramBot
 from project.utils import DAYS_IN_YEAR, MINUTES_IN_DAY, SECONDS_IN_DAY, SECONDS_IN_HOUR
 from project.vectorizers import Vectorizers
 
-def send_summary ():
-    ...
-
 async def verify_urls_price (monitor: Monitoring, link_obj: dict):
     url_list = link_obj["links"]
     category = link_obj["name"]
