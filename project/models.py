@@ -160,7 +160,7 @@ class FormatPromoMessage:
             )
 
         # escape special chars:
-        for char in (".", "!", "(", ")", "-", "_", "+"):
+        for char in (".", "!", "(", ")", "-", "_", "+", "#"):
             output = output.replace(char, rf"\{char}")
 
         output += f"[ \u206f ]({img})\n"

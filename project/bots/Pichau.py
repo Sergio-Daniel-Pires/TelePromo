@@ -9,11 +9,6 @@ except Exception:
 
 class Pichau (Bot):
     # Funcionando
-    async def scroll_to_bottom (self, page) -> None:
-        for i in range(8):
-            await page.evaluate(f"window.scrollTo(0, document.body.scrollHeight * .{i//2 + 5});"),
-            await asyncio.sleep(0.3)
-
     async def get_prices (self, **kwargs):
         page = self.page
 
@@ -31,7 +26,7 @@ class Pichau (Bot):
 
             raise exc
 
-        await self.scroll_to_bottom(page)
+        await self.scroll_to_bottom(wait_before_roll=0.3)
 
         second_section = (await page.query_selector_all("section"))[1]
 
@@ -89,6 +84,6 @@ class Pichau (Bot):
 if __name__ == "__main__":
     bot = Pichau()
     results = asyncio.run(
-        bot.run(headless=True, link="https://www.pichau.com.br")
+        bot.run(headless=False, link="https://www.pichau.com.br")
     )
     print(results)

@@ -28,7 +28,6 @@ async def continuous_verify_price (db: Database, monitor: Monitoring):
 
     _ = GroupMetrics()
     for _ in range(DAYS_IN_YEAR):
-        diary_stamp = int(time.time())
         hourly_results = GroupMetrics()
 
         for _ in range(MINUTES_IN_DAY):
@@ -46,10 +45,7 @@ async def continuous_verify_price (db: Database, monitor: Monitoring):
                 print(new_metric)
                 hourly_results.add_or_update_one(new_metric)
 
-            # Verifica se o dia acabou e tem que enviar relatorio
             finish_date = int(time.time())
-            if (finish_date - diary_stamp) >= SECONDS_IN_DAY:
-                break
 
             # Espera uma hora antes das proximas chamadas
             elapsed = finish_date - start_date
@@ -68,12 +64,12 @@ async def main ():
     telegram_bot = TelegramBot(
         database=db,
         vectorizer=vectorizers,
-        metrics=metrics
+        metrics_collector=metrics
     )
     monitor = Monitoring(
         retry=3,
         database=db,
-        telegram_bot=None,
+        telegram_bot=telegram_bot,
         vectorizer=vectorizers,
         metrics_collector=metrics
     )

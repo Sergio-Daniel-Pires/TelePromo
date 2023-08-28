@@ -7,6 +7,7 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
                           filters)
 from telegram.constants import ParseMode
 from project.vectorizers import Vectorizers
+from project.metrics_collector import MetricsCollector
 
 # First Level
 SELECTING_ACTION, SELECTING_CATEGORY, TO_ADD, TO_LIST = map(chr, range(4))
@@ -37,6 +38,7 @@ class TelegramBot ():
     selection_handlers: ConversationHandler
     database: Database
     vectorizer: Vectorizers
+    metrics_collector: MetricsCollector
 
     def __init__ (self, **kwargs) -> None:
         self.database = kwargs.get("database")
@@ -44,6 +46,7 @@ class TelegramBot ():
         self.application = Application.builder().token(
             "6163736593:AAFRImnBRLZ3Ra7TRuECvoBT1juJQmNxUv8"
         ).build()
+        self.metrics_collector = kwargs.get("metrics_collector")
 
         self.list_product_conv = ConversationHandler(
             entry_points={
@@ -266,6 +269,9 @@ class TelegramBot ():
                 )
                 button = InlineKeyboardButton(text="Pular", callback_data=str(END))
 
+                # Decrease in one edited
+                self.metrics_collector.handle_user_request("new")
+
             else:
                 if message == "Usuário só pode ter até 10 wishes":
                     product_ask = message
@@ -296,6 +302,9 @@ class TelegramBot ():
             end_text = "Editado!"
             button = InlineKeyboardButton(text="Voltar", callback_data=str(RETURN))
             keyboard = InlineKeyboardMarkup.from_button(button)
+
+            # Increase in one edited
+            self.metrics_collector.handle_user_request("edit")
 
             status_to_return = SHOWING
 
@@ -398,6 +407,9 @@ class TelegramBot ():
             user_id = context._user_id
             index = int(option[1:])
             self.database.remove_user_wish(user_id, index)
+
+            # Decrease in one edited
+            self.metrics_collector.handle_user_request("remove")
 
         await self.list_wishs(update, context)
 

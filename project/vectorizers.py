@@ -1,7 +1,6 @@
 from enum import Enum
 
-from project.utils import normalize_str
-
+from project.utils import normalize_str, remove_stop_words
 
 class Vectorizers (object):
     class Categorys (Enum):
@@ -38,12 +37,14 @@ class Vectorizers (object):
         """
         return self.funcs[category]
 
-    def extract_tags (self, raw_product_name: str, category: str) -> list:
+    @classmethod
+    def extract_tags (cls, raw_product_name: str, category: str) -> list:
         # Cutted function because vectorizer is not good (not enough data)
 
-        product_name = normalize_str(raw_product_name)
+        normalized_product_name = normalize_str(raw_product_name)
+        product_tags = remove_stop_words(normalized_product_name)
 
-        return product_name.split()
+        return product_tags
 
         if category != "diversified":
             vectorizer = self.select_vectorizer(category)
@@ -77,3 +78,6 @@ class Vectorizers (object):
             result = product_name.split()
 
         return result
+
+vectorizer = Vectorizers()
+print(vectorizer.extract_tags("capa para teclado", ""))

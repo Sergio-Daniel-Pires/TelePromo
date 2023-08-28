@@ -6,68 +6,7 @@ from abc import ABC, abstractmethod
 from playwright.async_api import async_playwright
 from playwright.async_api._generated import BrowserType, Page
 
-LINKS = [
-    {
-        "name": "diversificado",
-        "links": [
-            {
-                "name": "MagaLu",
-                "link": ""
-            }]
-    },
-    {
-        "name": "eletronicos",
-        "links": [
-            {
-                "name": "Kabum",
-                "link": "https://www.kabum.com.br",
-                "repeat": "60",
-                "last":  "2023-05-11 00:30:03.354898"
-            },
-            {
-                "name": "Terabyte",
-                "link": ""
-            },
-            {
-                "name": "Pichau",
-                "link": ""
-            }]
-    },
-    {
-        "name": "roupas",
-        "links": [
-            {
-                "name": "Centauro",
-                "link": ""
-            },
-            {
-                "name": "Nike",
-                "link": ""
-            },
-            {
-                "name": "Adidas",
-                "link": ""
-            },
-            {
-                "name": "Dafiti",
-                "link": ""
-            }]
-    },
-    {
-        "name": "casa/domestico",
-        "links": [{
-            "name": "Madeira Madeira",
-            "link": ""
-        }]
-    },
-    {
-        "name": "livros",
-        "links": [{
-            "name": "Estante Virtual",
-            "link": ""
-        }]
-    }
-]
+import asyncio
 
 
 class Bot (ABC):
@@ -118,14 +57,35 @@ class Bot (ABC):
             logging.error(traceback.format_exc())
             return None
 
+    async def scroll_to_bottom (
+        self, rolls: int = 8, prct: int = 5, wait_before_roll: float = 0.3
+    ) -> None:
+        for i in range(rolls):
+            await self.page.evaluate(
+                f"window.scrollTo(0, document.body.scrollHeight * .{i//2 + prct});"
+            ),
+            await asyncio.sleep(wait_before_roll)
+
     def new_product (
         self, name: str, price: str, url: str, details: str = None,
-        old_price: str = None, img: str = None
+        old_price: str = None, img: str = None, shipping: str = None,
+        from_brazil: bool = True
     ):
         product = {
             "name": name, "details": details, "price": price,
-            "old_price": old_price, "url": url, "img": img, "brand": self.brand
+            "old_price": old_price, "url": url, "img": img, "brand": self.brand,
+            "shipping": shipping, "from_brazil": from_brazil
         }
+
+        if details is None and "," in name:
+            product["name"], product["details"] = product["name"].split(",", 1)
+
+        if details is None:
+            product["details"] = ""
+
+        for key in ( "name", "details" ):
+            if product[key]:
+                product[key] = product[key].strip()
 
         for key in ( "price", "old_price" ):
             product[key] = self.format_money(product[key])

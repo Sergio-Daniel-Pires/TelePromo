@@ -19,7 +19,8 @@ class MetricsCollector:
         )
 
         self.errors_counter = Counter(
-            "telepromo_application_errors_total", "Number of errors in different application stages",
+            "telepromo_application_errors_total",
+            "Number of errors in different application stages",
             labelnames=["stage"]
         )
 
@@ -33,7 +34,7 @@ class MetricsCollector:
         )
 
         self.total_new_users = Counter(
-            "telepromo_total_new_users", "Number of new users registered"
+            "telepromo_new_users_total", "Number of new users registered"
         )
 
         self.start_metrics_server()

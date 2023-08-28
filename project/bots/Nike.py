@@ -22,6 +22,7 @@ class Nike (Bot):
                 continue
 
             price = await prices[0].inner_text()
+            old_price = price
 
             if len(prices) > 1:
                 old_price = await prices[1].inner_text()
@@ -31,9 +32,9 @@ class Nike (Bot):
             ).get_attribute("href")
 
             img = await (await product.query_selector("img")).get_attribute("src")
+            if "image/gif;base64," in img:
+                img = None
 
-            print(img)
-            print(url)
             all_results.append(self.new_product(name, price, url, details, old_price, img))
 
         return all_results

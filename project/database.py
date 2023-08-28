@@ -1,7 +1,8 @@
 import bson
-from project.bots.base import LINKS
+from project.links import LINKS
 from project.models import Price, Product, User, Wished
-from pymongo import MongoClient
+import pymongo
+from pymongo.collection import Collection
 import os
 from project.metrics_collector import MetricsCollector
 
@@ -10,23 +11,31 @@ class Database:
     """
     A class to manage connection with python and mongoDB
     """
-    client: MongoClient
-    database: dict
+    client: pymongo.MongoClient
+    database: dict[str, Collection]
     metrics_client: MetricsCollector
 
     def __init__ (self, metrics_client: MetricsCollector):
         self.metrics_client = metrics_client
-        self.client = MongoClient(
+        self.client = pymongo.MongoClient(
             f"mongodb://{os.environ.get('MONGO_URL', 'localhost')}",
             os.environ.get("MONGO_PORT", 27017)
         )
         self.database = self.client["telepromo"]
 
         # Initialize collections
-        if "links" not in self.database.list_collection_names():
-            self.database["links"].insert_many(LINKS)
+        # if "links" not in self.database.list_collection_names():
+        self.create_links(LINKS)
 
     # Product Funcs
+    def create_links (self, all_links: list):
+        for link in all_links:
+            self.database["links"].find_one_and_update(
+                { "name": link["name"] },
+                { "$set": { "links": link["links"] } },
+                upsert=True
+            )
+
     def get_links (self):
         links = self.database["links"].find({})
         return links
@@ -36,10 +45,14 @@ class Database:
             { "tags": product.tags },
             { "$setOnInsert": product.__dict__ },
             upsert=True,
-            return_document=True
+            return_document=pymongo.ReturnDocument.BEFORE
         )
+        old_product = False
 
-        old_product = not bool(len(dict_product["history"]) - 1)
+        if not dict_product:
+            dict_product = product.__dict__
+            old_product = True
+
         return old_product, dict_product
 
     def update_product_history (
@@ -64,22 +77,30 @@ class Database:
 
     # User Funcs
     def find_or_create_user (self, user_id: int, user_name: str):
+        new_obj_user = User(
+                            user_id, user_name, wish_list=[], premium=False
+                        )
+
         user = self.database["users"].find_one_and_update(
             { "_id": user_id },
             {
-                "$setOnInsert": User(
-                                    user_id, user_name, wish_list=[], premium=False
-                                ).__dict__
+                "$setOnInsert": new_obj_user.__dict__
             },
             upsert=True,
-            return_document=True
+            return_document=False
         )
 
-        return user
+        new_user = False
+        if user is None:
+            user = new_obj_user.__dict__
+            new_user = True
+            self.metrics_client.register_new_user()
+
+        return new_user, user
 
     # Wish Funcs
     def user_wishes (self, user_id: int, user_name: str) -> list[Wished]:
-        return self.find_or_create_user(user_id, user_name)["wish_list"]
+        return self.find_or_create_user(user_id, user_name)[1]["wish_list"]
 
     def verify_repeated_wish (self, user_id, tag_list, **kwargs):
         all_wishes = kwargs.get("wish_list")
@@ -96,7 +117,7 @@ class Database:
         self, user_id, user_name, tag_list, product, category, max_price=0
     ) -> tuple[bool, str]:
 
-        user = self.find_or_create_user(user_id, user_name)
+        _, user = self.find_or_create_user(user_id, user_name)
         user_wish = user.get("wish_list")
         repeated = self.verify_repeated_wish(user_id, tag_list, wish_list=user_wish)
         if len(tag_list) >= 15:
@@ -126,7 +147,6 @@ class Database:
         )
 
         return (True, "Adicionado com sucesso!")
-
 
     def new_wish (self, **kwargs):
         tags = kwargs.get("tags")
