@@ -18,7 +18,7 @@ ELETRONICS, LAR, OTHERS = map(chr, range(4, 7))  # max 4 to 10 (6)
 # Third
 ANOTHER_PRODUCT = map(chr, range(10, 11))
 
-STOPPING, SHOWING, TYPING, LISTING, PRICING = map(chr, range(11, 16))
+STOPPING, SHOWING, TYPING, LISTING, PRICING, SKIP = map(chr, range(11, 17))
 
 END = ConversationHandler.END
 
@@ -85,11 +85,15 @@ class TelegramBot ():
             },
             states={
                 TYPING: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_price)],
-                PRICING: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_product)],
+                PRICING: [
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_product),
+                    CallbackQueryHandler(self.save_product, pattern="^" + str(SKIP) + "$"),
+                ],
                 ANOTHER_PRODUCT: [
                     CallbackQueryHandler(self.return_to_start, pattern="^" + str(END) + "$"),
                     CallbackQueryHandler(self.select_category, pattern="^" + str(RETURN) + "$")
-                ]
+                ],
+                # END: self.selection_handlers
             },
             fallbacks=[
                 CallbackQueryHandler(self.select_category, pattern="^" + str(RETURN) + "$"),
@@ -176,7 +180,6 @@ class TelegramBot ():
         else:
             await update.callback_query.answer()
             await update.callback_query.edit_message_text(text=text, reply_markup=keyboard)
-
 
         context.user_data[START] = False
 
@@ -267,7 +270,7 @@ class TelegramBot ():
                     "Adicionado! Deseja definir um valor maximo para o produto?:\n"
                     + product_ask
                 )
-                button = InlineKeyboardButton(text="Pular", callback_data=str(END))
+                button = InlineKeyboardButton(text="Pular", callback_data=str(SKIP))
 
                 # Decrease in one edited
                 self.metrics_collector.handle_user_request("new")
@@ -294,9 +297,6 @@ class TelegramBot ():
         return PRICING
 
     async def save_product (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        value = update.message.text
-        user_id = update.message.from_user["id"]
-
         if context.user_data.get(INDEX, None) is not None:
             index = context.user_data[INDEX]
             end_text = "Editado!"
@@ -323,12 +323,19 @@ class TelegramBot ():
 
             status_to_return = ANOTHER_PRODUCT
 
-        if not value.isnumeric():
-            end_text = "Valor invalido, gostaria de tentar novamente?"
-        else:
-            self.database.update_wish_by_index(user_id, value, index)
+        if update.message is not None:
+            value = update.message.text
+            user_id = update.message.from_user["id"]
+            if value.isnumeric():
+                end_text = "Valor invalido, gostaria de tentar novamente?"
+            else:
+                self.database.update_wish_by_index(user_id, value, index)
 
-        await update.message.reply_text(text=end_text, reply_markup=keyboard)
+        option = update.callback_query.data
+        if option and option == SKIP:
+            await update.callback_query.edit_message_text(text=end_text, reply_markup=keyboard)
+        else:
+            await update.message.reply_text(text=end_text, reply_markup=keyboard)
 
         return status_to_return
 

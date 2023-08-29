@@ -33,7 +33,7 @@ class Kabum (Bot):
 
         api_link = (
             "https://b2lq2jmc06.execute-api.us-east-1.amazonaws.com/PROD/ofertas?&"
-            "campanha=SEMANAGAMER&pagina=1&limite=1000&"
+            "campanha=SEMANAGAMER&pagina=1&limite=7000&"
             "marcas=&ordem=&valor_min=&valor_max=&estrelas=&desconto_minimo="
             "&desconto_maximo=&dep=&sec=&vendedor_codigo=&string=&app=1"
         )
@@ -42,7 +42,7 @@ class Kabum (Bot):
             response = requests.get(api_link)
             response = response.json()
 
-            for offer in response["produtos"] + response["encerradas"]:
+            for offer in response["produtos"]:  # + response["encerradas"]:
                 name_and_details = offer["produto"]
                 if "," in name_and_details:
                     name, details = name_and_details.split(",", 1)

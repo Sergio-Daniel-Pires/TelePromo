@@ -164,6 +164,6 @@ class FormatPromoMessage:
             output = output.replace(char, rf"\{char}")
 
         output += f"[ \u206f ]({img})\n"
-        output += f"🛒 [\[COMPRAR NA {brand.upper()}\]]({url})\n"  # noqa W605
+        output += f"🛒 [\[COMPRAR NA {brand.upper()}\]]({url})\n"  # noqa W605 # type: ignore
 
         return output

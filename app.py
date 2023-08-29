@@ -5,7 +5,6 @@ from prometheus_client import start_http_server
 
 from project.database import Database
 from project.metrics_collector import MetricsCollector
-from project.graphs import GroupMetrics
 from project.monitor import Monitoring
 from project.telegram_bot import TelegramBot
 from project.utils import DAYS_IN_YEAR, MINUTES_IN_DAY, SECONDS_IN_DAY, SECONDS_IN_HOUR
@@ -19,16 +18,14 @@ async def verify_urls_price (monitor: Monitoring, link_obj: dict):
     results = await monitor.prices_from_url(url_list)
 
     # Get real metrics from last scan
-    new_metric = await monitor.verify_save_prices(results, category)
+    await monitor.verify_save_prices(results, category)
 
-    return new_metric
+    return True
 
 async def continuous_verify_price (db: Database, monitor: Monitoring):
     semaphore = asyncio.Semaphore(1)
 
-    _ = GroupMetrics()
     for _ in range(DAYS_IN_YEAR):
-        hourly_results = GroupMetrics()
 
         for _ in range(MINUTES_IN_DAY):
             start_date = int(time.time())
@@ -41,9 +38,7 @@ async def continuous_verify_price (db: Database, monitor: Monitoring):
 
             logging.info("Starting requests...")
             for future_task in asyncio.as_completed(tasks):
-                new_metric = await future_task
-                print(new_metric)
-                hourly_results.add_or_update_one(new_metric)
+                await future_task
 
             finish_date = int(time.time())
 
@@ -52,7 +47,8 @@ async def continuous_verify_price (db: Database, monitor: Monitoring):
             remaining = SECONDS_IN_HOUR - elapsed
             logging.warning(f"Runned too fast, waiting {remaining} seconds.")
 
-            while int(time.time()) - start_date < SECONDS_IN_HOUR:
+            # while int(time.time()) - start_date < SECONDS_IN_HOUR:
+            while int(time.time()) - start_date < 300:
                 await asyncio.sleep(10)
 
 

@@ -27,7 +27,10 @@ LINKS = [
             },
             {
                 "name": "Aliexpress",
-                "link": "https://pt.aliexpress.com/category/201000054/cellphones-telecommunications.html"
+                "link": (
+                    "https://pt.aliexpress.com/category/201000054/"
+                    "cellphones-telecommunications.html"
+                )
             },
             {
                 "name": "Aliexpress",
@@ -91,4 +94,3 @@ LINKS = [
         ]
     }
 ]
-

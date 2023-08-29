@@ -21,7 +21,6 @@ class Adidas (Bot):
             raise Exception("")
 
         products = await page.query_selector_all("div.glass-product-card")
-        c_prices = Counter()
 
         for product in products:
             name = await (await product.query_selector("p.glass-product-card__title")).inner_text()
@@ -29,10 +28,8 @@ class Adidas (Bot):
 
             obj_prices = await product.query_selector_all("div.gl-price-item")
             if obj_prices == []:
-                c_prices["error"] += 1
                 continue
 
-            c_prices["ok"] += 1
             price = (await obj_prices[0].inner_text())
             old_price = (await obj_prices[1].inner_text())
 
@@ -45,7 +42,6 @@ class Adidas (Bot):
             logging.debug(__class__, old_price, price)
             all_results.append(self.new_product(name, price, url, details, old_price, img))
 
-        print(c_prices)
         return all_results
 
 

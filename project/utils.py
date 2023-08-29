@@ -27,9 +27,9 @@ def custom_analyzer (text):
     # Create onegrams, bigrams and trigrams
     all_ngrams = []
     # clean_splited = np.setdiff1d(text.split(" "), np.array(STOP_WORDS))
-    splitted = text.split(" ")
-    for num in range(1, 4):
-        c_ngram = ngrams(splitted, num)
-        all_ngrams += ["".join(grams) for grams in c_ngram]
+    # splitted = text.split(" ")
+    # for num in range(1, 4):
+    #     c_ngram = ngrams(splitted, num)
+    #     all_ngrams += ["".join(grams) for grams in c_ngram]
 
     return all_ngrams

@@ -43,9 +43,12 @@ class Vectorizers (object):
 
         normalized_product_name = normalize_str(raw_product_name)
         product_tags = remove_stop_words(normalized_product_name)
+        product_tags.sort()
 
         return product_tags
+        """_summary_
 
+        :return: _description_
         if category != "diversified":
             vectorizer = self.select_vectorizer(category)
             tf_idf = vectorizer.transform(product_name.split())
@@ -78,6 +81,4 @@ class Vectorizers (object):
             result = product_name.split()
 
         return result
-
-vectorizer = Vectorizers()
-print(vectorizer.extract_tags("capa para teclado", ""))
+        """

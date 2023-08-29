@@ -10,12 +10,7 @@ class MetricsCollector:
 
         self.sites_returns_total = Counter(
             "telepromo_sites_returns_total", "Number of times each site was consumed and status",
-            labelnames=["site", "status"]
-        )
-
-        self.product_counter = Counter(
-            "telepromo_product_counter", "New products or prices",
-            labelnames=["product_status"]
+            labelnames=["site", "result_type"]
         )
 
         self.errors_counter = Counter(
@@ -44,15 +39,10 @@ class MetricsCollector:
         self.handle_error("started")
         logging.info("Started prometheus server")
 
-    def consume_site (
-        self, site: str, status: Literal["Sucess", "Error"], amount: int = 1
+    def handle_site_results (
+        self, site: str, result_type: Literal["new_product", "new_price", "error"], amount: int = 1
     ):
-        self.sites_returns_total.labels(site=site, status=status).inc(amount)
-
-    def handle_product (
-        self, product_status: Literal["new_product", "new_price"], amount: int = 1
-    ):
-        self.product_counter.labels(product_status=product_status).inc(amount)
+        self.sites_returns_total.labels(site=site, result_type=result_type).inc(amount)
 
     def handle_error (self, stage: str, amount: int = 1):
         self.errors_counter.labels(stage=stage).inc(amount=amount)

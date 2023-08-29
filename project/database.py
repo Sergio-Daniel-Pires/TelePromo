@@ -40,20 +40,18 @@ class Database:
         links = self.database["links"].find({})
         return links
 
-    def find_product (self, product: Product):
-        dict_product = self.database["products"].find_one_and_update(
-            { "tags": product.tags },
-            { "$setOnInsert": product.__dict__ },
-            upsert=True,
-            return_document=pymongo.ReturnDocument.BEFORE
+    def find_product (self, product: Product) -> tuple[bool, dict]:
+        dict_product = self.database["products"].find_one(
+            { "tags": { "$all": product.tags } }
         )
-        old_product = False
+        new_product = False
 
-        if not dict_product:
+        if dict_product is None:
+            self.database["products"].insert_one(product.__dict__)
             dict_product = product.__dict__
-            old_product = True
+            new_product = True
 
-        return old_product, dict_product
+        return new_product, dict_product
 
     def update_product_history (
         self, tags: list, new_price: dict | Price = None

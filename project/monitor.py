@@ -4,7 +4,6 @@ import time
 import traceback
 
 from project.database import Database
-from project.graphs import Metrics
 from project.models import Price, Product, FormatPromoMessage
 from project.telegram_bot import TelegramBot
 from project.vectorizers import Vectorizers
@@ -49,7 +48,6 @@ class Monitoring (object):
                 results = await bot_instance.run(link=link, brand=bot_name)
                 logging.warning(f"{bot_name}: {len(results)} found products.")
                 all_results += results
-                self.metrics_collector.consume_site(bot_name, "Sucess", len(results))
 
             except Exception as exc:
                 self.metrics_collector.handle_error("load_bot_and_results")
@@ -63,9 +61,8 @@ class Monitoring (object):
     async def verify_save_prices (self, results: dict, category: str):
         today = int(time.time())
 
-        new_metric = Metrics(category)
-
         for result in results:
+            bot_name = result["bot"]
             try:
                 name = result["name"].replace("\n", " ")
 
@@ -82,9 +79,9 @@ class Monitoring (object):
                     price=price, history=[]
                 )
 
-                old_product, product_dict = self.database.find_product(product_obj)
-                if not old_product:
-                    self.metrics_collector.handle_product("new_product")
+                new_product, product_dict = self.database.find_product(product_obj)
+                if new_product:
+                    self.metrics_collector.handle_site_results(bot_name, "new_product")
 
                 # New product
                 product_obj = Product(**product_dict)
@@ -111,11 +108,11 @@ class Monitoring (object):
                 )
 
                 avarage = price
-                if old_product:
+                if not new_product:
                     avarage = product_obj.avarage()
 
                 if is_new_price:
-                    self.metrics_collector.handle_product("new_price")
+                    self.metrics_collector.handle_site_results(bot_name, "new_price")
 
                 all_wishes = self.database.find_all_wishes(tags)
 
@@ -163,12 +160,10 @@ class Monitoring (object):
                         )
                         self.metrics_collector.handle_user_response()
 
-
             except Exception:
+                self.metrics_collector.handle_site_results(bot_name, "error")
                 self.metrics_collector.handle_error("get_results")
                 logging.error(traceback.print_exc())
-
-        return new_metric
 
     def verify_get_in_sents (self, new_price: Price | dict):
         if type(new_price) is dict:

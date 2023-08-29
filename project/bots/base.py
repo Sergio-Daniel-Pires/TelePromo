@@ -72,9 +72,9 @@ class Bot (ABC):
         from_brazil: bool = True
     ):
         product = {
-            "name": name, "details": details, "price": price,
-            "old_price": old_price, "url": url, "img": img, "brand": self.brand,
-            "shipping": shipping, "from_brazil": from_brazil
+            "bot": self.__class__.__name__, "name": name, "details": details,
+            "price": price, "old_price": old_price, "url": url, "img": img,
+            "brand": self.brand, "shipping": shipping, "from_brazil": from_brazil
         }
 
         if details is None and "," in name:
