@@ -5,6 +5,7 @@ import pymongo
 from pymongo.collection import Collection
 import os
 from project.metrics_collector import MetricsCollector
+import time
 
 
 class Database:
@@ -31,7 +32,7 @@ class Database:
     def create_links (self, all_links: list):
         for link in all_links:
             self.database["links"].find_one_and_update(
-                { "name": link["name"] },
+                { "category": link["category"] },
                 { "$set": { "links": link["links"] } },
                 upsert=True
             )
@@ -39,6 +40,14 @@ class Database:
     def get_links (self):
         links = self.database["links"].find({})
         return links
+
+    def update_link (self, category: str, index: int):
+        time_now = int(time.time())
+
+        self.database["links"].update_one(
+            { "category": category },
+            { "$set": { f"links.{index}.last": time_now } }
+        )
 
     def find_product (self, product: Product) -> tuple[bool, dict]:
         dict_product = self.database["products"].find_one(
@@ -130,7 +139,7 @@ class Database:
         if len(user_wish) >= 10 and not user.get("premium", False):
             return (False, "Usuário só pode ter até 10 wishes")
 
-        wish_id = self.new_wish(tags=tag_list, user=user_id, category=category)
+        wish_id = self.new_wish(tags=tag_list, user=user_id)
 
         self.database["users"].update_one(
             { "_id": user_id },
@@ -139,7 +148,8 @@ class Database:
                     "wish_id": wish_id,
                     "max": max_price,
                     "name": product,
-                    "tags": tag_list
+                    "tags": tag_list,
+                    "category": category
                 }
             }}
         )
@@ -149,13 +159,12 @@ class Database:
     def new_wish (self, **kwargs):
         tags = kwargs.get("tags")
         user_id = kwargs.get("user")
-        category = kwargs.get("category")
 
         wish_obj = self.database["wishes"].find_one_and_update(
             { "tags": tags },
             {
                 "$setOnInsert": Wished(
-                                    tags=tags, category=category
+                                    tags=tags
                                 ).__dict__
             },
             upsert=True,

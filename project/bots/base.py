@@ -69,12 +69,12 @@ class Bot (ABC):
     def new_product (
         self, name: str, price: str, url: str, details: str = None,
         old_price: str = None, img: str = None, shipping: str = None,
-        from_brazil: bool = True
+        from_brazil: bool = True, **kwargs
     ):
         product = {
             "bot": self.__class__.__name__, "name": name, "details": details,
             "price": price, "old_price": old_price, "url": url, "img": img,
-            "brand": self.brand, "shipping": shipping, "from_brazil": from_brazil
+            "brand": self.brand, "shipping": shipping
         }
 
         if details is None and "," in name:

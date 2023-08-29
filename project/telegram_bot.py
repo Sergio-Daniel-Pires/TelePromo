@@ -13,7 +13,7 @@ from project.metrics_collector import MetricsCollector
 SELECTING_ACTION, SELECTING_CATEGORY, TO_ADD, TO_LIST = map(chr, range(4))
 
 # Second
-ELETRONICS, LAR, OTHERS = map(chr, range(4, 7))  # max 4 to 10 (6)
+ELETRONICS, CLOTHES, HOUSE, PETS, BOOKS, OTHERS = map(chr, range(4, 10))  # max 4 to 10 (6)
 
 # Third
 ANOTHER_PRODUCT = map(chr, range(10, 11))
@@ -80,7 +80,8 @@ class TelegramBot ():
         self.add_product_conv = ConversationHandler(
             entry_points={
                 CallbackQueryHandler(
-                    self.ask_for_product, pattern="^" + str(ELETRONICS) + "$|^" + str(OTHERS) + "$"
+                    self.ask_for_product,
+                    pattern=f"^{ELETRONICS}$|^{CLOTHES}$|^{HOUSE}$|^{PETS}$|^{BOOKS}$|^{OTHERS}$"
                 )
             },
             states={
@@ -209,8 +210,12 @@ class TelegramBot ():
         )
 
         buttons = [
-            [InlineKeyboardButton(text="Eletronicos", callback_data=str(ELETRONICS))],
-            [InlineKeyboardButton(text="Outros", callback_data=str(OTHERS))],
+            [InlineKeyboardButton(text="📱 - Eletronicos", callback_data=str(ELETRONICS))],
+            [InlineKeyboardButton(text="👚 - Roupas", callback_data=str(CLOTHES))],
+            [InlineKeyboardButton(text="🏠 - Casa/Lar", callback_data=str(HOUSE))],
+            [InlineKeyboardButton(text="🐶 - Pets", callback_data=str(PETS))],
+            [InlineKeyboardButton(text="📚 - Livros", callback_data=str(BOOKS))],
+            [InlineKeyboardButton(text="📝 - Outros", callback_data=str(OTHERS))],
             [InlineKeyboardButton(text="Inicio", callback_data=str(END))]
         ]
 
@@ -234,7 +239,7 @@ class TelegramBot ():
         await update.callback_query.edit_message_text(text=new_product_text, reply_markup=keyboard)
 
         context.user_data[START] = True
-        context.user_data[TYPING] = True
+        context.user_data[TYPING] = update.callback_query.data
         context.user_data[INDEX] = None
 
         return TYPING
@@ -246,13 +251,6 @@ class TelegramBot ():
 
         keyboard = None
 
-        if update.callback_query:
-            option = update.callback_query.data
-            if option and option.startswith("E") and option[1:].isdigit():
-                context.user_data[INDEX] = int(option[1:])
-
-            function = update.callback_query.edit_message_text
-
         if context.user_data.get(TYPING, False):
             # Salvar produto no Mongo
             user_id = update.message.from_user["id"]
@@ -260,8 +258,14 @@ class TelegramBot ():
             product = update.message.text
             tag_list = self.vectorizer.extract_tags(product, "")
 
+            tag_mapping = {
+                ELETRONICS: "eletronics", CLOTHES: "clothes", HOUSE: "house",
+                PETS: "pets", BOOKS: "books", OTHERS: "others"
+            }
+            category = tag_mapping[context.user_data[TYPING]]
+
             status, message = self.database.insert_new_user_wish(
-                user_id, user_name, tag_list, product, "eletronics"
+                user_id, user_name, tag_list, product, category
             )
 
             if status:
@@ -290,6 +294,13 @@ class TelegramBot ():
             function = update.message.reply_text
 
             keyboard = InlineKeyboardMarkup.from_button(button)
+
+        else:
+            option = update.callback_query.data
+            if option and option.startswith("E") and option[1:].isdigit():
+                context.user_data[INDEX] = int(option[1:])
+
+            function = update.callback_query.edit_message_text
 
         await function(text=product_ask, reply_markup=keyboard)
 
@@ -327,7 +338,7 @@ class TelegramBot ():
             user_id = update.message.from_user["id"]
 
             if not value.isnumeric():
-                end_text = "Valor invalido, gostaria de tentar novamente?"
+                end_text = "Valor invalido, tentar novamente?"
             else:
                 self.database.update_wish_by_index(user_id, value, index)
 

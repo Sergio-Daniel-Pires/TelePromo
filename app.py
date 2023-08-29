@@ -1,20 +1,19 @@
 import asyncio
 import logging
-import time
 
 from project.database import Database
 from project.metrics_collector import MetricsCollector
 from project.monitor import Monitoring
 from project.telegram_bot import TelegramBot
-from project.utils import DAYS_IN_YEAR, MINUTES_IN_DAY, SECONDS_IN_HOUR
+from project.utils import DAYS_IN_YEAR, MINUTES_IN_DAY
 from project.vectorizers import Vectorizers
 
 async def verify_urls_price (monitor: Monitoring, link_obj: dict):
     url_list = link_obj["links"]
-    category = link_obj["name"]
+    category = link_obj["category"]
 
     # Get raw results from web scraping
-    results = await monitor.prices_from_url(url_list)
+    results = await monitor.prices_from_url(url_list, category)
 
     # Get real metrics from last scan
     await monitor.verify_save_prices(results, category)
@@ -27,7 +26,6 @@ async def continuous_verify_price (db: Database, monitor: Monitoring):
     for _ in range(DAYS_IN_YEAR):
 
         for _ in range(MINUTES_IN_DAY):
-            start_date = int(time.time())
             tasks = []
             links_cursor = db.get_links()
 
@@ -39,15 +37,7 @@ async def continuous_verify_price (db: Database, monitor: Monitoring):
             for future_task in asyncio.as_completed(tasks):
                 await future_task
 
-            finish_date = int(time.time())
-
-            # Espera uma hora antes das proximas chamadas
-            elapsed = finish_date - start_date
-            remaining = SECONDS_IN_HOUR - elapsed
-            logging.warning(f"Runned too fast, waiting {remaining} seconds.")
-
-            while int(time.time()) - start_date < SECONDS_IN_HOUR:
-                await asyncio.sleep(10)
+            await asyncio.sleep(10)
 
 
 async def main ():

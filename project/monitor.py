@@ -27,19 +27,27 @@ class Monitoring (object):
         self.telegram_bot = kwargs.get("telegram_bot")
         self.metrics_collector = kwargs.get("metrics_collector")
 
-    async def prices_from_url (self, urls: list[dict]) -> list:
+    async def prices_from_url (self, urls: list[dict], category: str) -> list:
         """
         Get a URL and return the dict with prices
         """
         all_results = []
+        time_now = int(time.time())
 
-        for url in urls:
+        for idx, url in enumerate(urls):
             link = url["link"]
             bot_name = url["name"]
+            last = url.get("last", None)
+            repeat = url.get("last", None)
 
             if link == "":
-                logging.warn(f"{bot_name} não tem link, skipando...")
+                # logging.warn(f"{bot_name} não tem link, skipando...")
                 continue
+
+            if last is not None and last + repeat > time_now:
+                continue
+
+            logging.warning(f"Trying to run {bot_name}...")
 
             try:
                 bot_module = importlib.import_module(f"project.bots.{bot_name}")
@@ -48,6 +56,8 @@ class Monitoring (object):
                 results = await bot_instance.run(link=link, brand=bot_name)
                 logging.warning(f"{bot_name}: {len(results)} found products.")
                 all_results += results
+
+                self.database.update_link(category, idx)
 
             except Exception as exc:
                 self.metrics_collector.handle_error("load_bot_and_results")

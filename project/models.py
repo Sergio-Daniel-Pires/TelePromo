@@ -26,14 +26,12 @@ class Wished:
     """
     _id: bson.ObjectId
     tags: list[str]
-    category: Literal["eletronics", "lardocelar"]
     users: dict[int: float | int]
     num_wishs: int
 
     def __init__ (self, **kwargs) -> None:
         self._id = bson.ObjectId()
         self.tags = kwargs.get("tags")
-        self.category = kwargs.get("category")
         self.users = kwargs.get("users", {})
         self.num_wishs = 0
 
