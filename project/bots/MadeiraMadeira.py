@@ -14,7 +14,7 @@ class MadeiraMadeira (Bot):
     async def get_prices (self, **kwargs):
         page = self.page
 
-        await page.goto(self.link)
+        await page.goto(self.link, timeout=12000)
         results = []
 
         await page.wait_for_selector("article")

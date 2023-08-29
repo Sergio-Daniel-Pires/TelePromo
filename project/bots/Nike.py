@@ -7,7 +7,7 @@ class Nike (Bot):
     # Funcionando
     async def get_prices (self, **kwargs):
         page = self.page
-        await page.goto(kwargs.get("link"))
+        await page.goto(kwargs.get("link"), timeout=12000)
         all_results = []
 
         await page.wait_for_selector("div.bPRNCw")

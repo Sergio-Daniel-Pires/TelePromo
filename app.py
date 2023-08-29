@@ -1,13 +1,12 @@
 import asyncio
 import logging
 import time
-from prometheus_client import start_http_server
 
 from project.database import Database
 from project.metrics_collector import MetricsCollector
 from project.monitor import Monitoring
 from project.telegram_bot import TelegramBot
-from project.utils import DAYS_IN_YEAR, MINUTES_IN_DAY, SECONDS_IN_DAY, SECONDS_IN_HOUR
+from project.utils import DAYS_IN_YEAR, MINUTES_IN_DAY, SECONDS_IN_HOUR
 from project.vectorizers import Vectorizers
 
 async def verify_urls_price (monitor: Monitoring, link_obj: dict):
@@ -47,8 +46,7 @@ async def continuous_verify_price (db: Database, monitor: Monitoring):
             remaining = SECONDS_IN_HOUR - elapsed
             logging.warning(f"Runned too fast, waiting {remaining} seconds.")
 
-            # while int(time.time()) - start_date < SECONDS_IN_HOUR:
-            while int(time.time()) - start_date < 300:
+            while int(time.time()) - start_date < SECONDS_IN_HOUR:
                 await asyncio.sleep(10)
 
 

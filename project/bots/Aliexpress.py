@@ -39,7 +39,7 @@ class Aliexpress (Bot):
 
         results = []
 
-        await page.goto(self.link)
+        await page.goto(self.link, timeout=12000)
 
         await self.try_reload_aliexpress()
 

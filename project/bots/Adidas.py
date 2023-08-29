@@ -5,13 +5,11 @@ try:
 except Exception:
     from base import Bot
 
-from collections import Counter
-
 class Adidas (Bot):
     # Corrigir prices
     async def get_prices (self, **kwargs):
         page = self.page
-        await page.goto(kwargs.get("link"))
+        await page.goto(kwargs.get("link"), timeout=12000)
         all_results = []
 
         try:

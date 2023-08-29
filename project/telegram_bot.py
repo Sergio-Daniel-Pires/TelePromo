@@ -90,12 +90,11 @@ class TelegramBot ():
                     CallbackQueryHandler(self.save_product, pattern="^" + str(SKIP) + "$"),
                 ],
                 ANOTHER_PRODUCT: [
-                    CallbackQueryHandler(self.return_to_start, pattern="^" + str(END) + "$"),
                     CallbackQueryHandler(self.select_category, pattern="^" + str(RETURN) + "$")
-                ],
-                # END: self.selection_handlers
+                ]
             },
             fallbacks=[
+                CallbackQueryHandler(self.return_to_start, pattern="^" + str(END) + "$"),
                 CallbackQueryHandler(self.select_category, pattern="^" + str(RETURN) + "$"),
                 CommandHandler("start", self.start)
             ],
@@ -326,13 +325,14 @@ class TelegramBot ():
         if update.message is not None:
             value = update.message.text
             user_id = update.message.from_user["id"]
-            if value.isnumeric():
+
+            if not value.isnumeric():
                 end_text = "Valor invalido, gostaria de tentar novamente?"
             else:
                 self.database.update_wish_by_index(user_id, value, index)
 
-        option = update.callback_query.data
-        if option and option == SKIP:
+        option = update.callback_query
+        if option and option.data == SKIP:
             await update.callback_query.edit_message_text(text=end_text, reply_markup=keyboard)
         else:
             await update.message.reply_text(text=end_text, reply_markup=keyboard)
