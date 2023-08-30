@@ -35,7 +35,6 @@ services:
     container_name: tp01
     environment:
       MONGO_URL: "mongodb"
-      PROMETHEUS_URL: "prometheus"
     build:
       context: .
       dockerfile: Dockerfile

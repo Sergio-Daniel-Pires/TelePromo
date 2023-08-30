@@ -1,7 +1,6 @@
 from prometheus_client import Counter, start_http_server
 from typing import Literal
 import logging
-import os
 
 class MetricsCollector:
     port: int
@@ -37,7 +36,6 @@ class MetricsCollector:
 
     def start_metrics_server(self):
         start_http_server(
-            addr=os.environ.get("PROMETHEUS_URL", "localhost"),
             port=self.port
         )
 
