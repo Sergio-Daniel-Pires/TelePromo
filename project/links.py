@@ -60,7 +60,7 @@ LINKS = [
             },
             {
                 "name": "Adidas",
-                "link": "https://www.adidas.com.br/flash_sale",
+                "link": "",
                 "repeat": 1800
             },
             {

@@ -21,21 +21,15 @@ async def verify_urls_price (monitor: Monitoring, link_obj: dict):
     return True
 
 async def continuous_verify_price (db: Database, monitor: Monitoring):
-    semaphore = asyncio.Semaphore(1)
 
     for _ in range(DAYS_IN_YEAR):
 
         for _ in range(MINUTES_IN_DAY):
-            tasks = []
             links_cursor = db.get_links()
 
-            for link_obj in links_cursor:
-                async with semaphore:
-                    tasks.append(asyncio.ensure_future(verify_urls_price(monitor, link_obj)))
-
             logging.info("Starting requests...")
-            for future_task in asyncio.as_completed(tasks):
-                await future_task
+            for link_obj in links_cursor:
+                await verify_urls_price(monitor, link_obj)
 
             await asyncio.sleep(10)
 

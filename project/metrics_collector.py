@@ -37,7 +37,7 @@ class MetricsCollector:
 
     def start_metrics_server(self):
         start_http_server(
-            addr=os.environ.get("telepromo", "localhost"),
+            addr=os.environ.get("PROMETHEUS_URL", "localhost"),
             port=self.port
         )
 
