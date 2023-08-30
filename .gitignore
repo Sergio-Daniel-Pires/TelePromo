@@ -1,8 +1,11 @@
+prom-amd64/*
+
 *.jsonc
 *.pyc
 ___pycache__
 *.tlp
 db/*
+db2/*
 *.ipynb
 
 # Byte-compiled / optimized / DLL files
@@ -138,3 +141,4 @@ cython_debug/
 *.jpeg
 *.rar
 *.zip
+*.tar.gz

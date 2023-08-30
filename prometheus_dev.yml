@@ -9,4 +9,4 @@ scrape_configs:
 
   - job_name: 'telepromo'
     static_configs:
-      - targets: ['telepromo:9091']
+      - targets: ['localhost:9091']

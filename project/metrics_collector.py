@@ -1,6 +1,7 @@
 from prometheus_client import Counter, start_http_server
 from typing import Literal
 import logging
+import os
 
 class MetricsCollector:
     port: int
@@ -35,7 +36,11 @@ class MetricsCollector:
         self.start_metrics_server()
 
     def start_metrics_server(self):
-        start_http_server(addr="telepromo", port=self.port)
+        start_http_server(
+            addr=os.environ.get("telepromo", "localhost"),
+            port=self.port
+        )
+
         self.handle_error("started")
         logging.info("Started prometheus server")
 
