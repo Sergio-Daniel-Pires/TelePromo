@@ -79,10 +79,25 @@ class Database:
             {"tags": {"$all": tags}}, {"$push": {"history": new_price}}
         )
 
+    def find_all_without_adjectives (self) -> pymongo.CursorType:
+        all_finds = self.database["products"].find({"adjectives": {"$exists": False}})
+        return all_finds
+    
+    def set_adjetives (self, old_tags: list, new_tags: list, adjectives: list):
+        self.database["products"].update_one(
+            { "tags": { "$all": old_tags } },
+            { 
+                "$set": {
+                    "adjectives": adjectives,
+                    "tags": new_tags
+                }
+            }
+        )
+
+    # User Funcs
     def find_user (self, user_id: int):
         return self.database["users"].find_one({ "_id": user_id })
 
-    # User Funcs
     def find_or_create_user (self, user_id: int, user_name: str):
         new_obj_user = User(
                             user_id, user_name, wish_list=[], premium=False

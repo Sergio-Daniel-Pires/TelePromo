@@ -1,5 +1,7 @@
 import re
 from project.stop_words import STOP_WORDS
+import spacy
+
 
 DAYS_IN_YEAR = 365
 MINUTES_IN_DAY = 1440
@@ -17,8 +19,27 @@ def normalize_str (text: str) -> str:
 
     return text
 
-def remove_stop_words (normalized_product_name: str) -> list:
-    return [word for word in normalized_product_name.split(" ") if word not in STOP_WORDS]
+def remove_stop_words (normalized_product_name: str) -> tuple[list[str], list[str]]:
+    nlp = spacy.load("pt_core_news_sm")
+    doc = nlp(normalized_product_name)
+
+    tags = []
+    adjectives = []
+
+    for token in doc:
+        if token.text in STOP_WORDS:
+            continue
+        
+        elif token.pos_ == "ADJ":
+            adjectives.append(token.text)
+        
+        else:
+            tags.append(token.text)
+
+    tags.sort()
+    adjectives.sort()
+    
+    return tags, adjectives
 
 # Model Training
 def custom_analyzer (text):

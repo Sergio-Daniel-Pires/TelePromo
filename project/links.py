@@ -13,7 +13,7 @@ LINKS = [
         "links": [
             {
                 "name": "Kabum",
-                "link": "https://www.kabum.com.br/ofertas/SEMANAGAMER",
+                "link": "https://www.kabum.com.br/ofertas/SETEMBROTECH",
                 "repeat": 900
             },
             {

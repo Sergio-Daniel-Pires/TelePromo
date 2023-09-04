@@ -42,10 +42,9 @@ class Vectorizers (object):
         # Cutted function because vectorizer is not good (not enough data)
 
         normalized_product_name = normalize_str(raw_product_name)
-        product_tags = remove_stop_words(normalized_product_name)
-        product_tags.sort()
+        product_tags, adjectives = remove_stop_words(normalized_product_name)
 
-        return product_tags
+        return product_tags, adjectives
         """_summary_
 
         :return: _description_

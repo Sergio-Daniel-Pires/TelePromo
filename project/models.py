@@ -1,4 +1,4 @@
-from typing import Any, Literal
+from typing import Any
 from project.promo_messages import UserMessages
 
 import bson
@@ -76,12 +76,13 @@ class Product:
     _id: bson.ObjectId()
     raw_name: str
     tags: list
+    adjectives: list
     category: str
     price: float
     history: list[Price]
 
     def __init__ (
-        self, raw_name: str, tags: list, category: str, price: float,
+        self, raw_name: str, tags: list, adjectives: list, category: str, price: float,
         history: list[Price] = [], _id: bson.ObjectId = None
     ) -> None:
         if not isinstance(_id, bson.ObjectId):
@@ -90,6 +91,7 @@ class Product:
         self._id = _id
         self.raw_name = raw_name
         self.tags = tags
+        self.adjectives = adjectives
         self.category = category
         self.price = price
         self.history = history

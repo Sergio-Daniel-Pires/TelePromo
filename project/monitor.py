@@ -2,6 +2,7 @@ import importlib
 import logging
 import time
 import traceback
+from telegram.ext import ContextTypes
 
 from project.database import Database
 from project.models import Price, Product, FormatPromoMessage
@@ -68,7 +69,9 @@ class Monitoring (object):
 
         return all_results
 
-    async def verify_save_prices (self, results: dict, category: str):
+    async def verify_save_prices (
+        self, context: ContextTypes.DEFAULT_TYPE, results: dict, category: str
+    ):
         today = int(time.time())
 
         for result in results:
@@ -77,7 +80,7 @@ class Monitoring (object):
                 name = result["name"].replace("\n", " ")
 
                 # Get only relevant names from raw name
-                tags = self.vectorizer.extract_tags(name, category)
+                tags, adjectives = self.vectorizer.extract_tags(name, category)
                 if tags == []:
                     continue
 
@@ -85,7 +88,7 @@ class Monitoring (object):
                 old_price = result["old_price"]
 
                 product_obj = Product(
-                    raw_name=name, category=category, tags=tags,
+                    raw_name=name, category=category, tags=tags, adjectives=adjectives,
                     price=price, history=[]
                 )
 
@@ -135,7 +138,7 @@ class Monitoring (object):
                     list_user_tags = wish["tags"]
                     set_user_tags = set(list_user_tags)
 
-                    needed = 0.5                    # Need at least half of tags to send
+                    needed = 0.75                   # Need at least half of tags to send
                     if len(list_user_tags) == 2:    # Special case, only two tags
                         needed = 1.0
 
@@ -163,7 +166,7 @@ class Monitoring (object):
                             continue
 
                         beautiful_msg = FormatPromoMessage.parse_msg(result, avarage, prct_equal)
-                        await self.send_to_user(user_id, beautiful_msg)
+                        await TelegramBot.enque_message(context, user_id, beautiful_msg)
 
                         self.database.add_new_user_in_price_sent(
                             product_obj._id, price_index, user_id, 1
@@ -180,6 +183,3 @@ class Monitoring (object):
             new_price = Price(**new_price)
 
         return new_price in self.get
-
-    async def send_to_user (self, chat_id: int, offer_message: str):
-        await self.telegram_bot.send_message(chat_id, offer_message)

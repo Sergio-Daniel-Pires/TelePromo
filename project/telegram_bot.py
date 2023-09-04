@@ -44,7 +44,7 @@ class TelegramBot ():
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
         self.application = Application.builder().token(
-            "6163736593:AAFRImnBRLZ3Ra7TRuECvoBT1juJQmNxUv8"
+            "6649989525:AAHgeYTN-x7jjZy2GHAxaCXBSwz-w6e_87c"
         ).build()
         self.metrics_collector = kwargs.get("metrics_collector")
 
@@ -142,14 +142,12 @@ class TelegramBot ():
         )
         self.application.add_handler(handler=self.conv_handler)
 
-    async def iniatilize (self):
-        await self.application.initialize()
-        await self.application.start()
-        await self.application.updater.start_polling()
-
-    async def send_message (self, chat_id: int, text: str):
-        await self.application.bot.sendMessage(
-            chat_id=chat_id, text=text, parse_mode=ParseMode.MARKDOWN_V2,
+    @classmethod
+    async def enque_message (cls, context: ContextTypes.DEFAULT_TYPE, chat_id: int, text: str):
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            parse_mode=ParseMode.MARKDOWN_V2,
             disable_web_page_preview=False
         )
 

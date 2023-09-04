@@ -9,10 +9,11 @@ install = "*"
 pytest-playwright = "*"
 nltk = "*"
 numpy = "*"
-scikit-learn = "*"
-python-telegram-bot = "*"
 prometheus-client = "*"
 flake8 = "*"
+apscheduler = "==3.6.3"
+python-telegram-bot = "*"
+spacy = "*"
 
 [dev-packages]
 ipykernel = "*"
