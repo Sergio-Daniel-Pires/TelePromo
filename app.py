@@ -17,7 +17,7 @@ def update_all_mongo (database: Database, vectorizer: Vectorizers):
         raw_name = product["raw_name"]
         category = product["category"]
 
-        if category == "eletronicos":
+        if category != "eletronicos":
             new_tags, adjectives = vectorizer.extract_tags(raw_name, "")
         else:
             new_tags, adjectives = old_tags, []
