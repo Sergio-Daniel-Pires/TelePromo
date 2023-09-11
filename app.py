@@ -1,9 +1,5 @@
 from telegram.ext import ContextTypes
 import logging
-import os
-import signal
-
-logging.basicConfig(level=logging.DEBUG)
 
 from project.database import Database
 from project.metrics_collector import MetricsCollector
