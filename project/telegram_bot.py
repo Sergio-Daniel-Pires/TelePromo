@@ -5,6 +5,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
                           ContextTypes, ConversationHandler, MessageHandler,
                           filters)
+from telegram.error import NetworkError
 from telegram.constants import ParseMode
 from project.vectorizers import Vectorizers
 from project.metrics_collector import MetricsCollector
@@ -144,12 +145,15 @@ class TelegramBot ():
 
     @classmethod
     async def enque_message (cls, context: ContextTypes.DEFAULT_TYPE, chat_id: int, text: str):
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            parse_mode=ParseMode.MARKDOWN_V2,
-            disable_web_page_preview=False
-        )
+        try:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                parse_mode=ParseMode.MARKDOWN_V2,
+                disable_web_page_preview=False
+            )
+        except:
+            raise NetworkError("Erro ao enviar mensagem")
 
     async def start (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         """Select an action: Donation, Finalize, List wishs, New Wish"""

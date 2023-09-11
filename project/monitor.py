@@ -2,6 +2,9 @@ import importlib
 import logging
 import time
 import traceback
+from telegram.error import NetworkError
+import os
+import signal
 from telegram.ext import ContextTypes
 
 from project.database import Database
@@ -172,6 +175,9 @@ class Monitoring (object):
                             product_obj._id, price_index, user_id, 1
                         )
                         self.metrics_collector.handle_user_response()
+
+            except NetworkError:
+                os.kill(os.getpid(), signal.SIGTERM)
 
             except Exception:
                 self.metrics_collector.handle_site_results(bot_name, "error")

@@ -3,6 +3,8 @@ import logging
 import os
 import signal
 
+logging.basicConfig(level=logging.DEBUG)
+
 from project.database import Database
 from project.metrics_collector import MetricsCollector
 from project.monitor import Monitoring
@@ -21,7 +23,7 @@ def update_all_mongo (database: Database, vectorizer: Vectorizers):
             new_tags, adjectives = vectorizer.extract_tags(raw_name, "")
         else:
             new_tags, adjectives = old_tags, []
-        
+
         database.set_adjetives(old_tags, new_tags, adjectives)
 
 def main ():
@@ -58,13 +60,10 @@ def main ():
             await monitor.verify_save_prices(context, results, category)
 
     telegram_bot.application.job_queue.run_repeating(
-        continuous_verify_price, 10, first=0
+       continuous_verify_price, 10, first=0
     )
 
-    try:
-        telegram_bot.application.run_polling()
-    except:
-        os.kill(os.getpid(), signal.SIGTERM)
+    telegram_bot.application.run_polling()
 
 if __name__ == "__main__":
     main()
