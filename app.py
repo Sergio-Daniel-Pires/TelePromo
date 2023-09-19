@@ -28,7 +28,7 @@ def main ():
     )
 
     telegram_bot.application.job_queue.run_repeating(
-      continuous_verify_price, 60 * 15, first=0
+      monitor.continuous_verify_price, 60 * 15, first=0
     )
 
     telegram_bot.application.run_polling()
