@@ -45,7 +45,7 @@ class TelegramBot ():
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
         self.application = Application.builder().token(
-            "6163736593:AAFRImnBRLZ3Ra7TRuECvoBT1juJQmNxUv8"
+            "6649989525:AAHgeYTN-x7jjZy2GHAxaCXBSwz-w6e_87c"
         ).build()
         self.metrics_collector = kwargs.get("metrics_collector")
 
@@ -69,7 +69,8 @@ class TelegramBot ():
                 PRICING: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_product)]
             },
             fallbacks={
-                CommandHandler("start", self.start)
+                CommandHandler("start", self.start),
+                CommandHandler("help", self.show_help)
             },
             map_to_parent={
                 SELECTING_ACTION: SELECTING_ACTION,
@@ -98,7 +99,8 @@ class TelegramBot ():
             fallbacks=[
                 CallbackQueryHandler(self.return_to_start, pattern="^" + str(END) + "$"),
                 CallbackQueryHandler(self.select_category, pattern="^" + str(RETURN) + "$"),
-                CommandHandler("start", self.start)
+                CommandHandler("start", self.start),
+                CommandHandler("help", self.show_help)
             ],
             map_to_parent={
                 RETURN: TO_ADD,
@@ -118,7 +120,8 @@ class TelegramBot ():
             },
             fallbacks=[
                 CallbackQueryHandler(self.return_to_start, pattern="^" + str(END) + "$"),
-                CommandHandler("start", self.start)
+                CommandHandler("start", self.start),
+                CommandHandler("help", self.show_help)
             ],
             map_to_parent={
                 SELECTING_ACTION: SELECTING_ACTION
@@ -131,14 +134,18 @@ class TelegramBot ():
             CallbackQueryHandler(self.donation, pattern="^" + str(DONATION) + "$"),
         ]
         self.conv_handler = ConversationHandler(
-            entry_points=[CommandHandler("start", self.start)],
+            entry_points=[
+                CommandHandler("start", self.start),
+                CommandHandler("help", self.show_help)
+            ],
             states={
                 SHOWING: [CallbackQueryHandler(self.start, pattern="^" + str(END) + "$")],
                 SELECTING_ACTION: self.selection_handlers,
                 STOPPING: [CommandHandler("start", self.start)]
             },
             fallbacks=[
-                CommandHandler("start", self.start)
+                CommandHandler("start", self.start),
+                CommandHandler("help", self.show_help)
             ]
         )
         self.application.add_handler(handler=self.conv_handler)
@@ -154,6 +161,19 @@ class TelegramBot ():
             )
         except:
             raise NetworkError("Erro ao enviar mensagem")
+
+    async def show_help (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+
+        await update.message.reply_text(
+                (
+                    "Aba help"
+                )
+            )
+
+        context.user_data[START] = False
+        await self.start(update, context)
+
+        return SELECTING_ACTION
 
     async def start (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         """Select an action: Donation, Finalize, List wishs, New Wish"""

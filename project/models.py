@@ -159,11 +159,15 @@ class FormatPromoMessage:
                 brand, product_desc, price, img, url
             )
 
-        # escape special chars:
-        for char in (".", "!", "(", ")", "-", "_", "+", "#"):
-            output = output.replace(char, rf"\{char}")
+        output = cls.escape_msg(output)
 
         output += f"[ \u206f ]({img})\n"
         output += f"🛒 [\[COMPRAR NA {brand.upper()}\]]({url})\n"  # noqa W605 # type: ignore
+
+    @classmethod
+    def escape_msg (cls, output: str):
+        # escape special chars:
+        for char in (".", "!", "(", ")", "-", "_", "+", "#"):
+            output = output.replace(char, rf"\{char}")
 
         return output

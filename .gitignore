@@ -7,6 +7,7 @@ ___pycache__
 db/*
 db2/*
 *.ipynb
+.vscode/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

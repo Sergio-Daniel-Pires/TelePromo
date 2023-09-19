@@ -15,6 +15,7 @@ def normalize_str (text: str) -> str:
     text = re.sub(r"[îíìï]", "i", text)
     text = re.sub(r"[õôóòö]", "o", text)
     text = re.sub(r"[ûúùü]", "u", text)
+    text = re.sub(r"[ñ]", "n", text)
     text = re.sub(r",\s+|\.\s+|\s-\s", " ", text)
 
     return text

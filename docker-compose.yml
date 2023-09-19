@@ -13,6 +13,7 @@ services:
 
   prometheus:
     image: prom/prometheus
+    container_name: tele_prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -29,6 +30,16 @@ services:
       - network  # Nome da rede que o container vai usar
     volumes:
       - grafana-storage:/var/lib/grafana  # Volume para armazenar dados persistentes do Grafana
+
+  ngrok:
+    container_name: ngrok-docker
+    depends_on: [grafana]
+    ports:
+      - "4040:4040"
+    image: wernight/ngrok
+    command: ngrok http 3000
+    networks:
+      - network
 
   telepromo:
     depends_on: [mongodb, prometheus]
@@ -51,6 +62,7 @@ services:
 
 networks:
   network:
+    driver: bridge
 
 volumes:
   grafana-storage:  # Definição do volume

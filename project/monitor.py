@@ -2,6 +2,7 @@ import importlib
 import logging
 import time
 import traceback
+import requests
 from telegram.error import NetworkError
 import os
 import signal
@@ -189,3 +190,26 @@ class Monitoring (object):
             new_price = Price(**new_price)
 
         return new_price in self.get
+
+    async def continuous_verify_price (self, context: ContextTypes.DEFAULT_TYPE):
+        links_cursor = self.db.get_links()
+
+        logging.info("Starting requests...")
+        for link_obj in links_cursor:
+            url_list = link_obj["links"]
+            category = link_obj["category"]
+
+            # Get raw results from web scraping
+            results = await self.prices_from_url(url_list, category)
+
+            await self.verify_save_prices(context, results, category)
+
+async def send_ngrok_message (context: ContextTypes.DEFAULT_TYPE):
+    ngrok_servers = requests.get("http://ngrok-docker:4040/api/tunnels").json()
+
+    public_url = ngrok_servers["tunnels"][0]["public_url"]
+    message = f"ngrok url:\n\n{public_url}"
+    beautiful_msg = FormatPromoMessage.escape_msg(message)
+    await TelegramBot.enque_message(context, "783468028", beautiful_msg)
+
+    print("public_url", public_url)
