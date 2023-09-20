@@ -163,10 +163,18 @@ class TelegramBot ():
             raise NetworkError("Erro ao enviar mensagem")
 
     async def show_help (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-
+        site_status = self.database.get_site_status()
         await update.message.reply_text(
                 (
-                    "Aba help"
+                    "O telepromobr é um bot de busca e alerta de ofertas!\n"
+                    "Caso experiencie algum erro e/ou travamento durante a aplicação, por favor"
+                    "utilize novamente o comando '/start' para retornar ao inicio."
+                    "\n\n"
+                    "Em caso de bugs ou problemas, relate a telepromobr@gmail.com\n"
+                    "Status de cada site do bot:\n" +
+                    site_status + "\n\n"
+                    "Por favor, se puder, de uma moral na aba 'Fortalecer Breja'\n"
+                    "Obrigado por utilizar!"
                 )
             )
 

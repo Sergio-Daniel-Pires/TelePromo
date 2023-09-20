@@ -40,7 +40,7 @@ class MetricsCollector:
         )
 
         self.handle_error("started")
-        logging.info("Started prometheus server")
+        logging.warning("Started prometheus server")
 
     def handle_site_results (
         self, site: str, result_type: Literal["new_product", "new_price", "error"], amount: int = 1

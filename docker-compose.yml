@@ -37,7 +37,9 @@ services:
     ports:
       - "4040:4040"
     image: wernight/ngrok
-    command: ngrok http 3000
+    command: ngrok http grafana:3000 --authtoken "2UMzMwzrSymLZ5Wx9R8DBrb09ho_KCuhS8w5UjZjYxUVqNRr"
+    links:
+      - grafana
     networks:
       - network
 
@@ -62,7 +64,6 @@ services:
 
 networks:
   network:
-    driver: bridge
 
 volumes:
   grafana-storage:  # Definição do volume

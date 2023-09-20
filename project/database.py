@@ -30,10 +30,11 @@ class Database:
 
     # Product Funcs
     def create_links (self, all_links: list):
-        for link in all_links:
+        for categorys in all_links:
+            dict_all_links = [ link.__dict__ for link in categorys["links"] ]
             self.database["links"].find_one_and_update(
-                { "category": link["category"] },
-                { "$set": { "links": link["links"] } },
+                { "category": categorys["category"] },
+                { "$set": { "links": dict_all_links } },
                 upsert=True
             )
 
@@ -41,13 +42,69 @@ class Database:
         links = self.database["links"].find({})
         return links
 
-    def update_link (self, category: str, index: int):
+    def update_link (self, category: str, index: int, status: str, url: dict[str, str | int]):
         time_now = int(time.time())
+        base_repeat = url["base_repeat"]
+
+        new_fields = {
+            f"links.{index}.last": time_now,
+            f"links.{index}.status": status
+        }
+
+        # reset repeat
+        if status == "OK" and url["status"] == "ERROR":
+            new_fields[f"links.{index}.repeat"] = base_repeat
+
+        if status == "ERROR":
+            if url["repeat"] < 3600:
+                new_fields[f"links.{index}.repeat"] = url["repeat"] + 60 * 5
 
         self.database["links"].update_one(
             { "category": category },
-            { "$set": { f"links.{index}.last": time_now } }
+            { "$set": new_fields }
         )
+
+    def get_site_status (self) -> str:
+        # Adicionar tempo de proxima execucao
+        links = self.get_links()
+
+        status_desc = [
+            "\n"
+            "🟢 - Site funcionando perfeitamente",
+            "🔴 - Site com algum problema e/ou fora do ar",
+            "⚫ - Ainda não busca nesse site",
+        ]
+        ok = []
+        error = []
+        no_link = []
+
+        for category in links:
+            for link in category["links"]:
+                if link["link"] == "":
+                    color = "⚫ - "
+                    current_list = no_link
+                    extra_info = ""
+
+                elif link["status"] == "ERROR":
+                    color = "🔴 - "
+                    current_list = error
+                    extra_info = ""
+
+                else:
+                    color = "🟢 - "
+                    current_list = ok
+
+                    last = link["last"]
+                    next_run = int((time.time() - last) / 60)
+
+                    extra_info = f" Att.: {next_run}m"
+
+                msg = color + f"{category['category']}/{link['name']}" + extra_info
+
+                if msg not in current_list:
+                    current_list.append(msg)
+
+        return "\n".join(ok + error + no_link + status_desc)
 
     def find_product (self, product: Product) -> tuple[bool, dict]:
         dict_product = self.database["products"].find_one(
@@ -82,11 +139,11 @@ class Database:
     def find_all_without_adjectives (self) -> pymongo.CursorType:
         all_finds = self.database["products"].find({"adjectives": {"$exists": False}})
         return all_finds
-    
+
     def set_adjetives (self, old_tags: list, new_tags: list, adjectives: list):
         self.database["products"].update_one(
             { "tags": { "$all": old_tags } },
-            { 
+            {
                 "$set": {
                     "adjectives": adjectives,
                     "tags": new_tags
@@ -106,7 +163,7 @@ class Database:
         user = self.database["users"].find_one_and_update(
             { "_id": user_id },
             {
-                "$setOnInsert": new_obj_user.__dict__
+                "$setOnInsert": new_obj_user
             },
             upsert=True,
             return_document=False
@@ -114,7 +171,7 @@ class Database:
 
         new_user = False
         if user is None:
-            user = new_obj_user.__dict__
+            user = new_obj_user
             new_user = True
             self.metrics_client.register_new_user()
 
@@ -180,7 +237,7 @@ class Database:
             {
                 "$setOnInsert": Wished(
                                     tags=tags
-                                ).__dict__
+                                )
             },
             upsert=True,
             return_document=True

@@ -42,14 +42,15 @@ class Monitoring (object):
         for idx, url in enumerate(urls):
             link = url["link"]
             bot_name = url["name"]
+            status = url["status"]
             last = url.get("last", None)
-            repeat = url.get("last", None)
+            repeat = url.get("repeat", None)
 
             if link == "":
-                # logging.warn(f"{bot_name} não tem link, skipando...")
+                logging.warn(f"{bot_name} não tem link, skipando...")
                 continue
 
-            if last is not None and last + repeat > time_now:
+            if status != "NEW" and last + repeat > time_now:
                 continue
 
             logging.warning(f"Trying to run {bot_name}...")
@@ -61,15 +62,15 @@ class Monitoring (object):
                 results = await bot_instance.run(link=link, brand=bot_name)
                 logging.warning(f"{bot_name}: {len(results)} found products.")
                 all_results += results
-
-                self.database.update_link(category, idx)
+                status = "OK"
 
             except Exception as exc:
                 self.metrics_collector.handle_error("load_bot_and_results")
                 logging.error(f"bot {bot_name} error: {exc}")
                 logging.error(traceback.format_exc())
+                status = "ERROR"
 
-                continue
+            self.database.update_link(category, idx, status, url)
 
         return all_results
 
@@ -80,6 +81,7 @@ class Monitoring (object):
 
         for result in results:
             bot_name = result["bot"]
+
             try:
                 name = result["name"].replace("\n", " ")
 
@@ -177,9 +179,6 @@ class Monitoring (object):
                         )
                         self.metrics_collector.handle_user_response()
 
-            except NetworkError:
-                os.kill(os.getpid(), signal.SIGTERM)
-
             except Exception:
                 self.metrics_collector.handle_site_results(bot_name, "error")
                 self.metrics_collector.handle_error("get_results")
@@ -192,9 +191,9 @@ class Monitoring (object):
         return new_price in self.get
 
     async def continuous_verify_price (self, context: ContextTypes.DEFAULT_TYPE):
-        links_cursor = self.db.get_links()
+        links_cursor = self.database.get_links()
 
-        logging.info("Starting requests...")
+        logging.warning("Starting requests...")
         for link_obj in links_cursor:
             url_list = link_obj["links"]
             category = link_obj["category"]

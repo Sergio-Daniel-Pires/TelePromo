@@ -4,6 +4,10 @@ from project.monitor import Monitoring, send_ngrok_message
 from project.telegram_bot import TelegramBot
 from project.vectorizers import Vectorizers
 
+import logging
+
+logging.getLogger().setLevel(logging.WARNING)
+
 def main ():
     metrics = MetricsCollector(9091)
 
@@ -24,11 +28,12 @@ def main ():
     )
 
     telegram_bot.application.job_queue.run_once(
-        send_ngrok_message, 2
+       send_ngrok_message, 2
+
     )
 
     telegram_bot.application.job_queue.run_repeating(
-      monitor.continuous_verify_price, 60 * 15, first=0
+        monitor.continuous_verify_price, 60 * 7, first=10
     )
 
     telegram_bot.application.run_polling()
