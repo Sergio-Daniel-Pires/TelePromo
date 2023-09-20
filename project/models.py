@@ -106,21 +106,6 @@ class Product:
 
         return sum(values)/len(values)
 
-class Links:
-    """
-    Link objects to store in PyMongo the URL"s that we get products
-    """
-    name: str
-    links: dict
-    repeat: int     # time in Seconds
-    last: int       # in timestamp
-
-    def __init__ (self, **kwargs) -> None:
-        self.name = kwargs.get("name")
-        self.links = kwargs.get("links")
-        self.repeat = kwargs.get("repeat")
-        self.last = None
-
 class FormatPromoMessage:
     """
     Object that formats user message
@@ -163,6 +148,7 @@ class FormatPromoMessage:
 
         output += f"[ \u206f ]({img})\n"
         output += f"🛒 [\[COMPRAR NA {brand.upper()}\]]({url})\n"  # noqa W605 # type: ignore
+        return output
 
     @classmethod
     def escape_msg (cls, output: str):

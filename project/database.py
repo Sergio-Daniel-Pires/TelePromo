@@ -52,7 +52,7 @@ class Database:
         }
 
         # reset repeat
-        if status == "OK" and url["status"] == "ERROR":
+        if status == "OK" and url["repeat"] != base_repeat:
             new_fields[f"links.{index}.repeat"] = base_repeat
 
         if status == "ERROR":
@@ -158,7 +158,7 @@ class Database:
     def find_or_create_user (self, user_id: int, user_name: str):
         new_obj_user = User(
                             user_id, user_name, wish_list=[], premium=False
-                        )
+                        ).__dict__
 
         user = self.database["users"].find_one_and_update(
             { "_id": user_id },
@@ -237,7 +237,7 @@ class Database:
             {
                 "$setOnInsert": Wished(
                                     tags=tags
-                                )
+                                ).__dict__
             },
             upsert=True,
             return_document=True

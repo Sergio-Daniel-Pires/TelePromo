@@ -4,6 +4,9 @@ import time
 
 @dataclass
 class Link:
+    """
+    Link objects to store in PyMongo the URL"s that we get products
+    """
     name: str
     link: str           = ""
     base_repeat: int    = 0
