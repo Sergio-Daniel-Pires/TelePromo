@@ -3,9 +3,9 @@ import logging
 import time
 import traceback
 import requests
-from telegram.error import NetworkError
-import os
-import signal
+import time
+import threading
+import asyncio
 from telegram.ext import ContextTypes
 
 from project.database import Database
@@ -25,12 +25,18 @@ class Monitoring (object):
     telegram_bot: TelegramBot
     metrics_collector: MetricsCollector
 
+    last_execution_time: int
+    shortest_bot_time: int
+
     def __init__ (self, **kwargs):
         self.retry = kwargs.get("retrys")
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
         self.telegram_bot = kwargs.get("telegram_bot")
         self.metrics_collector = kwargs.get("metrics_collector")
+
+        self.last_execution_time = 0
+        self.shortest_bot_time = 60 * 15
 
     async def prices_from_url (self, urls: list[dict], category: str) -> list:
         """
@@ -53,6 +59,9 @@ class Monitoring (object):
             if status != "NEW" and last + repeat > time_now:
                 continue
 
+            if repeat < self.shortest_bot_time:
+                self.shortest_bot_time = repeat
+
             logging.warning(f"Trying to run {bot_name}...")
 
             try:
@@ -72,6 +81,7 @@ class Monitoring (object):
 
             self.database.update_link(category, idx, status, url)
 
+        self.last_execution_time = time_now
         return all_results
 
     async def verify_save_prices (
@@ -202,6 +212,24 @@ class Monitoring (object):
             results = await self.prices_from_url(url_list, category)
 
             await self.verify_save_prices(context, results, category)
+
+    async def _continuous_verify_price(self, context: ContextTypes.DEFAULT_TYPE):
+        for thread in threading.enumerate():
+            if thread.name == "verify_urls":
+                logging.warning("Task verify_urls already in execution.")
+                return
+
+        current_time = int(time.time())
+        if current_time - self.last_execution_time < self.shortest_bot_time:
+            logging.warning(
+                f"Ainda não se passaram {int(self.shortest_bot_time / 60)} minutos desde a última execução."
+            )
+            return
+
+        threading.Thread(
+            target=asyncio.run, args=(self.continuous_verify_price(context),), name="verify_urls"
+        ).start()
+        self.last_execution_time = current_time
 
 async def send_ngrok_message (context: ContextTypes.DEFAULT_TYPE):
     ngrok_servers = requests.get("http://ngrok-docker:4040/api/tunnels").json()

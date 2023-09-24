@@ -70,7 +70,8 @@ class TelegramBot ():
             },
             fallbacks={
                 CommandHandler("start", self.start),
-                CommandHandler("help", self.show_help)
+                CommandHandler("help", self.show_help),
+                CommandHandler("status", self.show_status)
             },
             map_to_parent={
                 SELECTING_ACTION: SELECTING_ACTION,
@@ -100,7 +101,8 @@ class TelegramBot ():
                 CallbackQueryHandler(self.return_to_start, pattern="^" + str(END) + "$"),
                 CallbackQueryHandler(self.select_category, pattern="^" + str(RETURN) + "$"),
                 CommandHandler("start", self.start),
-                CommandHandler("help", self.show_help)
+                CommandHandler("help", self.show_help),
+                CommandHandler("status", self.show_status)
             ],
             map_to_parent={
                 RETURN: TO_ADD,
@@ -121,7 +123,8 @@ class TelegramBot ():
             fallbacks=[
                 CallbackQueryHandler(self.return_to_start, pattern="^" + str(END) + "$"),
                 CommandHandler("start", self.start),
-                CommandHandler("help", self.show_help)
+                CommandHandler("help", self.show_help),
+                CommandHandler("status", self.show_status)
             ],
             map_to_parent={
                 SELECTING_ACTION: SELECTING_ACTION
@@ -136,7 +139,8 @@ class TelegramBot ():
         self.conv_handler = ConversationHandler(
             entry_points=[
                 CommandHandler("start", self.start),
-                CommandHandler("help", self.show_help)
+                CommandHandler("help", self.show_help),
+                CommandHandler("status", self.show_status)
             ],
             states={
                 SHOWING: [CallbackQueryHandler(self.start, pattern="^" + str(END) + "$")],
@@ -145,7 +149,8 @@ class TelegramBot ():
             },
             fallbacks=[
                 CommandHandler("start", self.start),
-                CommandHandler("help", self.show_help)
+                CommandHandler("help", self.show_help),
+                CommandHandler("status", self.show_status)
             ]
         )
         self.application.add_handler(handler=self.conv_handler)
@@ -168,15 +173,23 @@ class TelegramBot ():
                 (
                     "O telepromobr é um bot de busca e alerta de ofertas!\n"
                     "Caso experiencie algum erro e/ou travamento durante a aplicação, por favor"
-                    "utilize novamente o comando '/start' para retornar ao inicio."
-                    "\n\n"
+                    "utilize novamente o comando '/start' para retornar ao inicio.\n"
+                    "Caso queira ver os sites que o bot procura, de '/status'\n"
+                    "\n"
                     "Em caso de bugs ou problemas, relate a telepromobr@gmail.com\n"
-                    "Status de cada site do bot:\n" +
-                    site_status + "\n\n"
                     "Por favor, se puder, de uma moral na aba 'Fortalecer Breja'\n"
                     "Obrigado por utilizar!"
                 )
             )
+
+        context.user_data[START] = False
+        await self.start(update, context)
+
+        return SELECTING_ACTION
+
+    async def show_status (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        site_status = self.database.get_site_status()
+        await update.message.reply_text(f"Status de cada site do bot:\n{site_status}")
 
         context.user_data[START] = False
         await self.start(update, context)

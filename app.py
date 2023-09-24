@@ -29,11 +29,10 @@ def main ():
 
     telegram_bot.application.job_queue.run_once(
        send_ngrok_message, 2
-
     )
 
     telegram_bot.application.job_queue.run_repeating(
-        monitor.continuous_verify_price, 60 * 7, first=10
+        monitor._continuous_verify_price, 60, first=3
     )
 
     telegram_bot.application.run_polling()

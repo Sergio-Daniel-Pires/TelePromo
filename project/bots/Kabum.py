@@ -33,9 +33,9 @@ class Kabum (Bot):
 
         api_link = (
             "https://b2lq2jmc06.execute-api.us-east-1.amazonaws.com/PROD/ofertas?&"
-            "campanha=SEMANAGAMER&pagina=1&limite=7000&"
-            "marcas=&ordem=&valor_min=&valor_max=&estrelas=&desconto_minimo="
-            "&desconto_maximo=&dep=&sec=&vendedor_codigo=&string=&app=1"
+            "campanha=SALDAONINJA&pagina=2&limite=7000&"
+            "marcas=&ordem=&valor_min=&valor_max=&estrelas=&desconto_minimo=&"
+            "desconto_maximo=&dep=&sec=&vendedor_codigo=&string=&app=1"
         )
 
         try:
@@ -101,6 +101,6 @@ if __name__ == "__main__":
     bot = Kabum()
     import asyncio
     results = asyncio.run(
-        bot.run(headless=True, link="https://www.kabum.com.br/ofertas/SEMANAGAMER")
+        bot.run(headless=False, link="https://www.kabum.com.br/ofertas/SEMANAGAMER")
     )
     print(results)
