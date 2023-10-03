@@ -42,7 +42,7 @@ LINKS = [
             Link("Centauro"),
             Link("Dafiti"),
             Link("Nike", "https://www.nike.com.br/nav/ofertas/emoferta", 1800),
-            Link("Adidas"),
+            Link("Adidas", "https://www.adidas.com.br/flash_sale", 1800),
             Link("Aliexpress", "https://pt.aliexpress.com/category/201001900/women-clothing.html", 300),
             Link("Aliexpress", "https://pt.aliexpress.com/category/201001892/men-clothing.html", 300),
             Link("Aliexpress", "https://pt.aliexpress.com/category/201003442/women-intimates.html", 300),

@@ -30,28 +30,14 @@ def remove_stop_words (normalized_product_name: str) -> tuple[list[str], list[st
     for token in doc:
         if token.text in STOP_WORDS:
             continue
-        
+
         elif token.pos_ == "ADJ":
             adjectives.append(token.text)
-        
+
         else:
             tags.append(token.text)
 
     tags.sort()
     adjectives.sort()
-    
+
     return tags, adjectives
-
-# Model Training
-def custom_analyzer (text):
-    # substitui bigrams e trigrams por versões sem espaço
-    text = normalize_str(text)
-    # Create onegrams, bigrams and trigrams
-    all_ngrams = []
-    # clean_splited = np.setdiff1d(text.split(" "), np.array(STOP_WORDS))
-    # splitted = text.split(" ")
-    # for num in range(1, 4):
-    #     c_ngram = ngrams(splitted, num)
-    #     all_ngrams += ["".join(grams) for grams in c_ngram]
-
-    return all_ngrams

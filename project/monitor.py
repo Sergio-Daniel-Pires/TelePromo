@@ -2,15 +2,13 @@ import importlib
 import logging
 import time
 import traceback
-import requests
 import time
-import threading
+from redis import Redis
+import json
 import asyncio
-from telegram.ext import ContextTypes
 
 from project.database import Database
 from project.models import Price, Product, FormatPromoMessage
-from project.telegram_bot import TelegramBot
 from project.vectorizers import Vectorizers
 from project.metrics_collector import MetricsCollector
 
@@ -22,21 +20,25 @@ class Monitoring (object):
     """
     database: Database
     vectorizer: Vectorizers
-    telegram_bot: TelegramBot
     metrics_collector: MetricsCollector
+    redis_client: Redis
 
     last_execution_time: int
     shortest_bot_time: int
+
+    first_sent: bool # Only to try sent_msg
 
     def __init__ (self, **kwargs):
         self.retry = kwargs.get("retrys")
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
-        self.telegram_bot = kwargs.get("telegram_bot")
         self.metrics_collector = kwargs.get("metrics_collector")
+        self.redis_client = kwargs.get("redis_client")
 
         self.last_execution_time = 0
         self.shortest_bot_time = 60 * 15
+
+        self.first_sent = False
 
     async def prices_from_url (self, urls: list[dict], category: str) -> list:
         """
@@ -53,13 +55,17 @@ class Monitoring (object):
             repeat = url.get("repeat", None)
 
             if link == "":
-                logging.warn(f"{bot_name} não tem link, skipando...")
+                logging.debug(f"{bot_name} não tem link, skipando...")
                 continue
 
             if status != "NEW" and last + repeat > time_now:
+                logging.debug(f"{bot_name} ainda não passou tempo suficiente...")
                 continue
 
-            if repeat < self.shortest_bot_time:
+            if repeat == 0:
+                logging.error(f"{bot_name}: Erro ddae repeat 0")
+
+            if repeat < self.shortest_bot_time and repeat != 0:
                 self.shortest_bot_time = repeat
 
             logging.warning(f"Trying to run {bot_name}...")
@@ -81,11 +87,10 @@ class Monitoring (object):
 
             self.database.update_link(category, idx, status, url)
 
-        self.last_execution_time = time_now
         return all_results
 
     async def verify_save_prices (
-        self, context: ContextTypes.DEFAULT_TYPE, results: dict, category: str
+        self, results: dict, category: str
     ):
         today = int(time.time())
 
@@ -143,6 +148,16 @@ class Monitoring (object):
                 if is_new_price:
                     self.metrics_collector.handle_site_results(bot_name, "new_price")
 
+                # Just to try msg are sent
+                if not self.first_sent:
+                    beautiful_msg = FormatPromoMessage.parse_msg(result, avarage, 1)
+                    self.redis_client.lpush(
+                        "msgs_to_send", json.dumps(
+                            { "chat_id": "783468028", "message": beautiful_msg }
+                        )
+                    )
+                    self.first_sent = True
+
                 all_wishes = self.database.find_all_wishes(tags)
 
                 for wish in all_wishes:
@@ -182,7 +197,12 @@ class Monitoring (object):
                             continue
 
                         beautiful_msg = FormatPromoMessage.parse_msg(result, avarage, prct_equal)
-                        await TelegramBot.enque_message(context, user_id, beautiful_msg)
+                        #await TelegramBot.enque_message(context, user_id, beautiful_msg)
+                        self.redis_client.lpush(
+                            "msgs_to_send", json.dumps(
+                                { "chat_id": user_id, "message": beautiful_msg }
+                            )
+                        )
 
                         self.database.add_new_user_in_price_sent(
                             product_obj._id, price_index, user_id, 1
@@ -200,7 +220,7 @@ class Monitoring (object):
 
         return new_price in self.get
 
-    async def continuous_verify_price (self, context: ContextTypes.DEFAULT_TYPE):
+    async def continuous_verify_price (self):
         links_cursor = self.database.get_links()
 
         logging.warning("Starting requests...")
@@ -211,32 +231,23 @@ class Monitoring (object):
             # Get raw results from web scraping
             results = await self.prices_from_url(url_list, category)
 
-            await self.verify_save_prices(context, results, category)
+            await self.verify_save_prices(results, category)
 
-    async def _continuous_verify_price(self, context: ContextTypes.DEFAULT_TYPE):
-        for thread in threading.enumerate():
-            if thread.name == "verify_urls":
-                logging.warning("Task verify_urls already in execution.")
-                return
+        logging.warning("Verified all urls!")
+        return True
 
-        current_time = int(time.time())
-        if current_time - self.last_execution_time < self.shortest_bot_time:
-            logging.warning(
-                f"Ainda não se passaram {int(self.shortest_bot_time / 60)} minutos desde a última execução."
-            )
-            return
+    async def _continuous_verify_price(self):
+        while True:
+            current_time = int(time.time())
+            elapsed = current_time - self.last_execution_time
+            print(current_time, elapsed)
+            if elapsed < self.shortest_bot_time:
+                logging.warning(
+                    f"Ainda não se passaram {int(self.shortest_bot_time / 60)} min {int(elapsed/60)}."
+                )
+            else:
+                await self.continuous_verify_price()
+                self.last_execution_time = current_time
 
-        threading.Thread(
-            target=asyncio.run, args=(self.continuous_verify_price(context),), name="verify_urls"
-        ).start()
-        self.last_execution_time = current_time
 
-async def send_ngrok_message (context: ContextTypes.DEFAULT_TYPE):
-    ngrok_servers = requests.get("http://ngrok-docker:4040/api/tunnels").json()
-
-    public_url = ngrok_servers["tunnels"][0]["public_url"]
-    message = f"ngrok url:\n\n{public_url}"
-    beautiful_msg = FormatPromoMessage.escape_msg(message)
-    await TelegramBot.enque_message(context, "783468028", beautiful_msg)
-
-    print("public_url", public_url)
+            await asyncio.sleep(60)

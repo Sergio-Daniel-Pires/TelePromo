@@ -26,14 +26,18 @@ class Wished:
     """
     _id: bson.ObjectId
     tags: list[str]
+    adjectives: list[str]
     users: dict[int: float | int]
+    max_wishes: int
     num_wishs: int
 
     def __init__ (self, **kwargs) -> None:
         self._id = bson.ObjectId()
         self.tags = kwargs.get("tags")
+        self.tags = kwargs.get("adjectives")
         self.users = kwargs.get("users", {})
         self.num_wishs = 0
+        self.max_wishes = 10
 
 class Price:
     _id: bson.ObjectId()

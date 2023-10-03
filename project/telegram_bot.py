@@ -1,4 +1,7 @@
 import asyncio
+import json
+from redis import Redis
+import requests
 
 from project.database import Database
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -9,6 +12,7 @@ from telegram.error import NetworkError
 from telegram.constants import ParseMode
 from project.vectorizers import Vectorizers
 from project.metrics_collector import MetricsCollector
+from project.models import FormatPromoMessage
 
 # First Level
 SELECTING_ACTION, SELECTING_CATEGORY, TO_ADD, TO_LIST = map(chr, range(4))
@@ -40,14 +44,16 @@ class TelegramBot ():
     database: Database
     vectorizer: Vectorizers
     metrics_collector: MetricsCollector
+    redis_client: Redis
 
     def __init__ (self, **kwargs) -> None:
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
         self.application = Application.builder().token(
-            "6163736593:AAFRImnBRLZ3Ra7TRuECvoBT1juJQmNxUv8"
+            "6649989525:AAHgeYTN-x7jjZy2GHAxaCXBSwz-w6e_87c"
         ).build()
         self.metrics_collector = kwargs.get("metrics_collector")
+        self.redis_client = kwargs.get("redis_client")
 
         self.list_product_conv = ConversationHandler(
             entry_points={
@@ -167,8 +173,32 @@ class TelegramBot ():
         except:
             raise NetworkError("Erro ao enviar mensagem")
 
+    @classmethod
+    async def send_ngrok_message (cls, context: ContextTypes.DEFAULT_TYPE):
+        ngrok_servers = requests.get("http://ngrok-docker:4040/api/tunnels").json()
+
+        public_url = ngrok_servers["tunnels"][0]["public_url"]
+        message = f"ngrok url:\n\n{public_url}"
+        beautiful_msg = FormatPromoMessage.escape_msg(message)
+        await TelegramBot.enque_message(context, "783468028", beautiful_msg)
+
+        print("public_url", public_url)
+
+    async def get_user_msgs_from_redis (self, context: ContextTypes.DEFAULT_TYPE):
+        while True:
+            raw_data = self.redis_client.lpop("msgs_to_send")
+
+            if not raw_data:
+                break
+
+            data = json.loads(raw_data)
+            chat_id = data["chat_id"]
+            message = data["message"]
+
+            await self.enque_message(context, chat_id, message)
+            await asyncio.sleep(0.1)
+
     async def show_help (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        site_status = self.database.get_site_status()
         await update.message.reply_text(
                 (
                     "O telepromobr é um bot de busca e alerta de ofertas!\n"
@@ -299,7 +329,7 @@ class TelegramBot ():
             user_id = update.message.from_user["id"]
             user_name = update.message.from_user["first_name"]
             product = update.message.text
-            tag_list = self.vectorizer.extract_tags(product, "")
+            tag_list, adjectives = self.vectorizer.extract_tags(product, "")
 
             tag_mapping = {
                 ELETRONICS: "eletronics", CLOTHES: "clothes", HOUSE: "house",
@@ -308,7 +338,7 @@ class TelegramBot ():
             category = tag_mapping[context.user_data[TYPING]]
 
             status, message = self.database.insert_new_user_wish(
-                user_id, user_name, tag_list, product, category
+                user_id, user_name, tag_list, product, category, adjectives=adjectives
             )
 
             if status:

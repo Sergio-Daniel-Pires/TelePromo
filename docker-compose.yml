@@ -11,6 +11,13 @@ services:
     networks:
       - network
 
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - network
+
   prometheus:
     image: prom/prometheus
     container_name: tele_prometheus
@@ -44,7 +51,7 @@ services:
       - network
 
   telepromo:
-    depends_on: [mongodb, prometheus]
+    depends_on: [mongodb, prometheus, redis]
     container_name: tp01
     environment:
       MONGO_URL: "mongodb"

@@ -32,10 +32,7 @@ class Kabum (Bot):
         results = []
 
         api_link = (
-            "https://b2lq2jmc06.execute-api.us-east-1.amazonaws.com/PROD/ofertas?&"
-            "campanha=SALDAONINJA&pagina=2&limite=7000&"
-            "marcas=&ordem=&valor_min=&valor_max=&estrelas=&desconto_minimo=&"
-            "desconto_maximo=&dep=&sec=&vendedor_codigo=&string=&app=1"
+            "https://b2lq2jmc06.execute-api.us-east-1.amazonaws.com/PROD/ofertas?&campanha=HORADOPLAY&pagina=1&limite=1000&marcas=&ordem=&valor_min=&valor_max=&estrelas=&desconto_minimo=&desconto_maximo=&dep=&sec=&vendedor_codigo=&string=&app=1"
         )
 
         try:

@@ -38,7 +38,7 @@ class Vectorizers (object):
         return self.funcs[category]
 
     @classmethod
-    def extract_tags (cls, raw_product_name: str, category: str) -> list:
+    def extract_tags (cls, raw_product_name: str, category: str) -> tuple[list[str], list[str]]:
         # Cutted function because vectorizer is not good (not enough data)
 
         normalized_product_name = normalize_str(raw_product_name)

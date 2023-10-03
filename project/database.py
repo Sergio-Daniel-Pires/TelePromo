@@ -193,12 +193,20 @@ class Database:
         return False
 
     def insert_new_user_wish (
-        self, user_id, user_name, tag_list, product, category, max_price=0
+        self, user_id: str, user_name: str, tag_list: list[str],
+        product: str, category:str, max_price: int=0, adjectives: list[str]=[]
     ) -> tuple[bool, str]:
 
         _, user = self.find_or_create_user(user_id, user_name)
         user_wish = user.get("wish_list")
+        max_wishes = user.get("max_wishes", 10)
         repeated = self.verify_repeated_wish(user_id, tag_list, wish_list=user_wish)
+
+        # Adjectives don't work for eletronics and books
+        if category in ( "eletronics", "books" ) and len(adjectives) != 0:
+            tag_list += adjectives
+            adjectives = []
+
         if len(tag_list) >= 15:
             (False, "Nao pode ter mais que 15 palavras.")
 
@@ -208,10 +216,10 @@ class Database:
         elif repeated:
             return (False, f"Usuário já tem um alerta igual: {repeated}")
 
-        if len(user_wish) >= 10 and not user.get("premium", False):
-            return (False, "Usuário só pode ter até 10 wishes")
+        if len(user_wish) >= max_wishes and not user.get("premium", False):
+            return (False, f"Usuário só pode ter até {max_wishes} wishes")
 
-        wish_id = self.new_wish(tags=tag_list, user=user_id)
+        wish_id = self.new_wish(tags=tag_list, user=user_id, adjectives=adjectives)
 
         self.database["users"].update_one(
             { "_id": user_id },
@@ -221,6 +229,7 @@ class Database:
                     "max": max_price,
                     "name": product,
                     "tags": tag_list,
+                    "adjectives": adjectives,
                     "category": category
                 }
             }}
@@ -231,12 +240,14 @@ class Database:
     def new_wish (self, **kwargs):
         tags = kwargs.get("tags")
         user_id = kwargs.get("user")
+        adjectives = kwargs.get("adjectives", [])
 
         wish_obj = self.database["wishes"].find_one_and_update(
             { "tags": tags },
             {
                 "$setOnInsert": Wished(
-                                    tags=tags
+                                    tags=tags,
+                                    adjectives=adjectives
                                 ).__dict__
             },
             upsert=True,

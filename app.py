@@ -1,8 +1,11 @@
 from project.database import Database
 from project.metrics_collector import MetricsCollector
-from project.monitor import Monitoring, send_ngrok_message
+from project.monitor import Monitoring
 from project.telegram_bot import TelegramBot
 from project.vectorizers import Vectorizers
+from redis import Redis
+import threading
+import asyncio
 
 import logging
 
@@ -14,26 +17,35 @@ def main ():
     db = Database(metrics)
     vectorizers = Vectorizers()
 
+    redis_client = Redis(host="redis", port=6379)
+
     telegram_bot = TelegramBot(
         database=db,
         vectorizer=vectorizers,
-        metrics_collector=metrics
+        metrics_collector=metrics,
+        redis_client=redis_client
     )
 
     monitor = Monitoring(
         retry=3,
         database=db,
         vectorizer=vectorizers,
+        redis_client=redis_client,
         metrics_collector=metrics
     )
 
     telegram_bot.application.job_queue.run_once(
-       send_ngrok_message, 2
+       telegram_bot.send_ngrok_message, 2
     )
 
     telegram_bot.application.job_queue.run_repeating(
-        monitor._continuous_verify_price, 60, first=3
+        telegram_bot.get_user_msgs_from_redis, 60, 5
     )
+
+    # Start Verify prices in a new Thread
+    threading.Thread(
+        target=asyncio.run, args=(monitor._continuous_verify_price(),)
+    ).start()
 
     telegram_bot.application.run_polling()
 
