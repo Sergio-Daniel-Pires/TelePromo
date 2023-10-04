@@ -96,11 +96,12 @@ class Database:
                     color = "🟢 - "
                     current_list = ok
 
-                    last = link["last"]
-                    repeat = link["repeat"]
-                    next_run = int((last + repeat - time.time()) / 60)
+                    # last = link["last"]
+                    # repeat = link["repeat"]
+                    # next_run = int((last + repeat - time.time()) / 60)
+                    extra_info = ""
 
-                    extra_info = f" Att.: {next_run}m"
+                    # extra_info = f" Att.: {next_run}m"
 
                 msg = color + f"{category['category']}/{link['name']}" + extra_info
 
