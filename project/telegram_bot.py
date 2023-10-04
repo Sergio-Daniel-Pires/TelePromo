@@ -1,18 +1,19 @@
 import asyncio
 import json
-from redis import Redis
-import requests
 
-from project.database import Database
+import requests
+from redis import Redis
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.constants import ParseMode
+from telegram.error import NetworkError
 from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
                           ContextTypes, ConversationHandler, MessageHandler,
                           filters)
-from telegram.error import NetworkError
-from telegram.constants import ParseMode
-from project.vectorizers import Vectorizers
+
+from project.database import Database
 from project.metrics_collector import MetricsCollector
 from project.models import FormatPromoMessage
+from project.vectorizers import Vectorizers
 
 # First Level
 SELECTING_ACTION, SELECTING_CATEGORY, TO_ADD, TO_LIST = map(chr, range(4))
@@ -50,7 +51,7 @@ class TelegramBot ():
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
         self.application = Application.builder().token(
-            "6649989525:AAHgeYTN-x7jjZy2GHAxaCXBSwz-w6e_87c"
+            "6163736593:AAFRImnBRLZ3Ra7TRuECvoBT1juJQmNxUv8"
         ).build()
         self.metrics_collector = kwargs.get("metrics_collector")
         self.redis_client = kwargs.get("redis_client")
@@ -170,7 +171,8 @@ class TelegramBot ():
                 parse_mode=ParseMode.MARKDOWN_V2,
                 disable_web_page_preview=False
             )
-        except:
+
+        except Exception:
             raise NetworkError("Erro ao enviar mensagem")
 
     @classmethod

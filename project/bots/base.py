@@ -1,13 +1,43 @@
+import asyncio
 import logging
 import re
 import traceback
 from abc import ABC, abstractmethod
+from enum import Enum
+from typing import Any
 
 from playwright.async_api import async_playwright
 from playwright.async_api._generated import BrowserType, Page
 
-import asyncio
 
+class UserMessages(str, Enum):
+    ALL_TAGS_MATCHED = (
+        "*{}*: SUPER OFERTA PRA VOCE! 😱😱\n"   # Site name
+        "\n"
+        "🔥🔥🔥 {}\n"                           # Product name
+        "\n"
+        "R$ {:.2f} 💵"                          # Price
+        "\n"
+    )
+
+    AVG_LOW = (
+        "*{}*: Baixou de preco!\n"        # Site name
+        "\n"
+        "🔥🔥 {}\n"                       # Product name
+        "\n"
+        "R$ {:.2f} 💵\n"                  # Price
+        "Hist.: {}\n"                     # AVG Price
+        "\n"
+    )
+
+    MATCHED_OFFER = (
+        "*{}*: Você também pode gostar!\n"    # Site name
+        "\n"
+        "🔥 {}\n"                             # Product name
+        "\n"
+        "R$ {:.2f} 💵"                        # Price
+        "\n"
+    )
 
 class Bot (ABC):
     browser: BrowserType
@@ -15,6 +45,7 @@ class Bot (ABC):
     page: Page
     headless: bool
     brand: str
+
     user_agent: str = (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         "(KHTML, like Gecko) Chrome/84.0.4147.105 Safari/537.36"
@@ -68,13 +99,12 @@ class Bot (ABC):
 
     def new_product (
         self, name: str, price: str, url: str, details: str = None,
-        old_price: str = None, img: str = None, shipping: str = None,
-        from_brazil: bool = True, **kwargs
+        old_price: str = None, img: str = None, extras: dict[str, Any] = {}
     ):
         product = {
             "bot": self.__class__.__name__, "name": name, "details": details,
             "price": price, "old_price": old_price, "url": url, "img": img,
-            "brand": self.brand, "shipping": shipping
+            "brand": self.brand, "extras": extras
         }
 
         if details is None and "," in name:
@@ -100,3 +130,35 @@ class Bot (ABC):
     @abstractmethod
     async def get_prices (self):
         ...
+
+    def promo_message (
+        self, result: dict[str, Any], avarage: float, prct_equal: float
+    ):
+        brand = result["brand"]
+        product_name = result["name"]
+        details = result["details"].strip()
+        price = result["price"]
+        url = result["url"]
+        img = result["img"]
+
+        if product_name == details:
+            details = ""
+
+        product_desc = f"{product_name}, {details}"
+
+        if prct_equal == 1:
+            message = UserMessages.ALL_TAGS_MATCHED.format(
+                brand, product_desc, price, img, url
+            )
+
+        elif price < avarage:
+            message = UserMessages.AVG_LOW.format(
+                brand, product_desc, price, avarage, img, url
+            )
+
+        else:
+            message = UserMessages.MATCHED_OFFER.format(
+                brand, product_desc, price, img, url
+            )
+
+        return message

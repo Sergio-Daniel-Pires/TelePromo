@@ -55,6 +55,7 @@ services:
     container_name: tp01
     environment:
       MONGO_URL: "mongodb"
+      REDIS_URL: "redis"
     build:
       context: .
       dockerfile: Dockerfile

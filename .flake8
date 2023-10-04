@@ -4,3 +4,6 @@ extend-ignore = \
     E302
 
 max-line-length = 100
+
+per-file-ignores =
+    project/links.py:E501

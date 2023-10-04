@@ -1,7 +1,8 @@
+import importlib
 from typing import Any
-from project.promo_messages import UserMessages
 
 import bson
+
 from project.utils import SECONDS_IN_DAY
 
 
@@ -48,10 +49,12 @@ class Price:
     is_affiliate: bool
     url: str
     users_sent: dict[int, int]
+    extras: dict[str, Any]
 
     def __init__ (
         self, date: int, price: float, old_price: float, is_promo: bool, is_affiliate: bool,
-        url: str, users_sent: dict[int, int] = {}, _id: bson.ObjectId = None
+        url: str, extras: dict[str, Any] = {}, users_sent: dict[int, int] = {},
+        _id: bson.ObjectId = None
     ) -> None:
         if not isinstance(_id, bson.ObjectId):
             _id = bson.ObjectId()
@@ -65,6 +68,8 @@ class Price:
         self.url = url
         self.users_sent = users_sent
 
+        self.extras = extras
+
     def __eq__ (self, __value: object) -> bool:
         if (self.date - __value.date) < SECONDS_IN_DAY * 3:
             if self.price == __value.price:
@@ -75,7 +80,7 @@ class Price:
 
 class Product:
     """
-    Product object to use in PyMongof
+    Product object to use in PyMongo
     """
     _id: bson.ObjectId()
     raw_name: str
@@ -101,6 +106,7 @@ class Product:
         self.history = history
 
     def get_history (self) -> list[Price]:
+        # Removed from list comprehension, 'extras' fault
         return [Price(**items) for items in self.history]
 
     def avarage (self) -> float:
@@ -120,35 +126,19 @@ class FormatPromoMessage:
 
     @classmethod
     def parse_msg (
-        cls, result: dict[str, Any], avarage: float, prct_equal: float
+        cls, result: dict[str, Any], avarage: float, prct_equal: float, bot_name: str,
     ):
         brand = result["brand"]
-        product_name = result["name"]
-        details = result["details"].strip()
-        price = result["price"]
-        url = result["url"]
         img = result["img"]
+        url = result["url"]
 
-        if product_name == details:
-            details = ""
+        # Get custom promo message if needed
+        bot_module = importlib.import_module(f"project.bots.{bot_name}")
+        bot_class = getattr(bot_module, bot_name)
+        bot_instance = bot_class()
+        output_msg = bot_instance.promo_message(result, avarage, prct_equal)
 
-        product_desc = f"{product_name}, {details}"
-        if prct_equal == 1:
-            output = UserMessages.ALL_TAGS_MATCHED.format(
-                brand, product_desc, price, img, url
-            )
-
-        elif price < avarage:
-            output = UserMessages.AVG_LOW.format(
-                brand, product_desc, price, avarage, img, url
-            )
-
-        else:
-            output = UserMessages.MATCHED_OFFER.format(
-                brand, product_desc, price, img, url
-            )
-
-        output = cls.escape_msg(output)
+        output = cls.escape_msg(output_msg)
 
         output += f"[ \u206f ]({img})\n"
         output += f"🛒 [\[COMPRAR NA {brand.upper()}\]]({url})\n"  # noqa W605 # type: ignore

@@ -1,4 +1,6 @@
 import asyncio
+from enum import Enum
+from typing import Any
 
 try:
     from project.bots.base import Bot
@@ -6,6 +8,39 @@ except Exception:
     from base import Bot
 
 import json
+
+
+class InternationalMessages(str, Enum):
+    ALL_TAGS_MATCHED = (
+        "*{}*: SUPER OFERTA PRA VOCE! 😱😱\n"   # Site name
+        "\n"
+        "🔥🔥🔥 {}\n"                           # Product name
+        "{}\n"                                  # Frete
+        "\n"
+        "R$ {:.2f} 💵"                          # Price
+        "\n"
+    )
+
+    AVG_LOW = (
+        "*{}*: Baixou de preco!\n"        # Site name
+        "\n"
+        "🔥🔥 {}\n"                       # Product name
+        "{}\n"                            # Frete
+        "\n"
+        "R$ {:.2f} 💵\n"                  # Price
+        "Hist.: {}\n"                     # AVG Price
+        "\n"
+    )
+
+    MATCHED_OFFER = (
+        "*{}*: Você também pode gostar!\n"    # Site name
+        "\n"
+        "🔥 {}\n"                             # Product name
+        "{}\n"                                # Frete
+        "\n"
+        "R$ {:.2f} 💵"                        # Price
+        "\n"
+    )
 
 class Aliexpress (Bot):
     async def try_reload_aliexpress (self):
@@ -39,7 +74,7 @@ class Aliexpress (Bot):
 
         results = []
 
-        await page.goto(self.link, timeout=12000)
+        await page.goto(self.link, timeout=30000)
 
         await self.try_reload_aliexpress()
 
@@ -53,6 +88,7 @@ class Aliexpress (Bot):
         products_data = products_json["data"]["root"]["fields"]["mods"]["itemList"]
 
         for product_obj in products_data["content"]:
+            extras = {}
             product_id = product_obj["productId"]
 
             name = product_obj["title"]["seoTitle"]
@@ -62,10 +98,9 @@ class Aliexpress (Bot):
 
             img = "https://" + product_obj["image"]["imgUrl"][2:]
 
-            shipping = None
             for selling_point in product_obj.get("sellingPoints", []):
                 if "shipping" in selling_point["source"]:
-                    shipping = selling_point["tagContent"]["tagText"]
+                    extras["shipping"] = selling_point["tagContent"]["tagText"]
 
             prices = product_obj["prices"]
 
@@ -77,17 +112,50 @@ class Aliexpress (Bot):
                 old_price = original_price["minPrice"]
 
             results.append(
-                self.new_product(name, price, url, details, old_price, img, shipping)
+                self.new_product(name, price, url, details, old_price, img, extras)
             )
 
         return results
+
+    def promo_message (
+        self, result: dict[str, Any], avarage: float, prct_equal: float
+    ):
+        brand = result["brand"]
+        product_name = result["name"]
+        details = result["details"].strip()
+        price = result["price"]
+        url = result["url"]
+        img = result["img"]
+        shipping = result.get("shipping", "Consulte o Frete!")
+
+        if product_name == details:
+            details = ""
+
+        product_desc = f"{product_name}, {details}"
+
+        if prct_equal == 1:
+            message = InternationalMessages.ALL_TAGS_MATCHED.format(
+                brand, product_desc, shipping, price, img, url
+            )
+
+        elif price < avarage:
+            message = InternationalMessages.AVG_LOW.format(
+                brand, product_desc, shipping, price, avarage, img, url
+            )
+
+        else:
+            message = InternationalMessages.MATCHED_OFFER.format(
+                brand, product_desc, shipping, price, img, url
+            )
+
+        return message
 
 
 if __name__ == "__main__":
     bot = Aliexpress()
     results = asyncio.run(
         bot.run(
-            headless=True,
+            headless=False,
             link=(
                 "https://pt.aliexpress.com/category/201000054/"
                 "cellphones-telecommunications.html"

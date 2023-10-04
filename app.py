@@ -1,13 +1,15 @@
+import asyncio
+import logging
+import os
+import threading
+
+from redis import Redis
+
 from project.database import Database
 from project.metrics_collector import MetricsCollector
 from project.monitor import Monitoring
 from project.telegram_bot import TelegramBot
 from project.vectorizers import Vectorizers
-from redis import Redis
-import threading
-import asyncio
-
-import logging
 
 logging.getLogger().setLevel(logging.WARNING)
 
@@ -17,7 +19,9 @@ def main ():
     db = Database(metrics)
     vectorizers = Vectorizers()
 
-    redis_client = Redis(host="redis", port=6379)
+    redis_client = Redis(
+        host=os.environ.get('REDIS_URL', 'localhost'), port=6379
+    )
 
     telegram_bot = TelegramBot(
         database=db,
@@ -48,6 +52,7 @@ def main ():
     ).start()
 
     telegram_bot.application.run_polling()
+
 
 if __name__ == "__main__":
     main()

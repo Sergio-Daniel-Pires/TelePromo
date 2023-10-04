@@ -1,14 +1,59 @@
+import asyncio
 import logging
 import re
 import traceback
+from enum import Enum
+from typing import Any
 
 import requests
-import asyncio
 
 try:
     from project.bots.base import Bot
 except Exception:
     from base import Bot
+
+class CobasiMessages(str, Enum):
+    ALL_TAGS_MATCHED = (
+        "*{}*: OFERTA PRA VOCÊ! 🐶😺\n"   # Site name
+        "\n"
+        "🔥🔥🔥 {}\n"                           # Product name
+        "\n"
+        "Preço 💵\n"
+        "R$ {:.2f}"                          # Price
+        "\n"
+        "\n"
+        "🐶 Amigo Cobasi\n"
+        "R$ {:.2f}"                          # Prime price
+        "\n"
+    )
+
+    AVG_LOW = (
+        "*{}*: Baixou de preco!\n"        # Site name
+        "\n"
+        "🔥🔥 {}\n"                       # Product name
+        "Preço 💵\n"
+        "\n"
+        "R$ {:.2f}\n"                  # Price
+        "Hist.: {}\n"                     # AVG Price
+        "\n"
+        "\n"
+        "🐶 Amigo Cobasi\n"
+        "R$ {:.2f}"                    # Prime price
+        "\n"
+    )
+
+    MATCHED_OFFER = (
+        "*{}*: Recomendado pro seu Pet!\n"    # Site name
+        "\n"
+        "🔥 {}\n"                        # Product name
+        "Preço 💵\n"
+        "R$ {:.2f}"                   # Price
+        "\n"
+        "\n"
+        "🐶 Amigo Cobasi\n"
+        "R$ {:.2f}"                   # Prime price
+        "\n"
+    )
 
 class Cobasi (Bot):
     async def get_prices (self, **kwargs):
@@ -43,6 +88,8 @@ class Cobasi (Bot):
                     break
 
                 for offer in response["products"]:
+                    extras = {}
+
                     if offer["status"] != "AVAILABLE":
                         continue
 
@@ -51,18 +98,18 @@ class Cobasi (Bot):
 
                     price = offer["price"]
                     old_price = offer["oldPrice"]
-                    sub_price = offer["subscriptionPrice"]
+                    extras["sub_price"] = self.format_money(offer["subscriptionPrice"])
 
                     if None in (price, old_price):
                         continue
 
-                    img = offer["images"]["default"]
-                    url = offer["url"]
+                    # BUG Fixed to url without https://
+                    img = "https:" + offer["images"]["default"]
+                    url = "https:" + offer["url"]
 
-                    logging.debug(__class__, old_price, price)
                     results.append(
                         self.new_product(
-                            name, price, url, details, old_price, img, sub_price=sub_price
+                            name, price, url, details, old_price, img, extras
                         )
                     )
 
@@ -74,10 +121,44 @@ class Cobasi (Bot):
 
         return results
 
+    def promo_message (
+        self, result: dict[str, Any], avarage: float, prct_equal: float
+    ):
+        brand = result["brand"]
+        product_name = result["name"]
+        details = result["details"].strip()
+        price = result["price"]
+        url = result["url"]
+        img = result["img"]
+
+        prime_price = result["extras"].get("sub_price", price)
+
+        if product_name == details:
+            details = ""
+
+        product_desc = f"{product_name}, {details}"
+
+        if prct_equal == 1:
+            message = CobasiMessages.ALL_TAGS_MATCHED.format(
+                brand, product_desc, price, prime_price, img, url
+            )
+
+        elif price < avarage:
+            message = CobasiMessages.AVG_LOW.format(
+                brand, product_desc, price, avarage, prime_price, img, url
+            )
+
+        else:
+            message = CobasiMessages.MATCHED_OFFER.format(
+                brand, product_desc, price, prime_price, img, url
+            )
+
+        return message
+
 
 if __name__ == "__main__":
     bot = Cobasi()
     results = asyncio.run(
         bot.run(headless=True, link="https://www.cobasi.com.br/promocoes")
     )
-    print(len(results))
+    print(results)

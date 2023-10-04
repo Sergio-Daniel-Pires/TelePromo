@@ -1,7 +1,8 @@
 import re
-from project.stop_words import STOP_WORDS
+
 import spacy
 
+from project.stop_words import STOP_WORDS
 
 DAYS_IN_YEAR = 365
 MINUTES_IN_DAY = 1440

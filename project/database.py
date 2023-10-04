@@ -1,11 +1,13 @@
+import os
+import time
+
 import bson
-from project.links import LINKS
-from project.models import Price, Product, User, Wished
 import pymongo
 from pymongo.collection import Collection
-import os
+
+from project.links import LINKS
 from project.metrics_collector import MetricsCollector
-import time
+from project.models import Price, Product, User, Wished
 
 
 class Database:
@@ -95,7 +97,8 @@ class Database:
                     current_list = ok
 
                     last = link["last"]
-                    next_run = int((time.time() - last) / 60)
+                    repeat = link["repeat"]
+                    next_run = int((last + repeat - time.time()) / 60)
 
                     extra_info = f" Att.: {next_run}m"
 
@@ -194,7 +197,7 @@ class Database:
 
     def insert_new_user_wish (
         self, user_id: str, user_name: str, tag_list: list[str],
-        product: str, category:str, max_price: int=0, adjectives: list[str]=[]
+        product: str, category: str, max_price: int = 0, adjectives: list[str] = []
     ) -> tuple[bool, str]:
 
         _, user = self.find_or_create_user(user_id, user_name)

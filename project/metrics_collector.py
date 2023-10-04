@@ -1,6 +1,8 @@
-from prometheus_client import Counter, start_http_server
-from typing import Literal
 import logging
+from typing import Literal
+
+from prometheus_client import Counter, start_http_server
+
 
 class MetricsCollector:
     port: int
