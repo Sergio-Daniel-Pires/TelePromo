@@ -30,8 +30,8 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
       - network
-    #logging:
-    #  driver: none
+    logging:
+      driver: none
 
   grafana:
     image: grafana/grafana

@@ -2,8 +2,8 @@ import asyncio
 from typing import Any
 
 try:
-    from project.bots.base import Bot
     from project.bots.Aliexpress import InternationalMessages
+    from project.bots.base import Bot
 
 except Exception:
     from base import Bot
@@ -42,6 +42,7 @@ class Shein (Bot):
 
         products_json = json.loads(products_json)
         offers = products_json["contextForSSR"]["goods"]
+
         for offer in offers:
             extras = {}
 

@@ -4,10 +4,8 @@ import json
 import logging
 import time
 import traceback
-import threading
 
 from redis import Redis
-from telegram.ext import ContextTypes
 
 from project.database import Database
 from project.metrics_collector import MetricsCollector

@@ -52,7 +52,7 @@ class TelegramBot ():
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
         self.application = Application.builder().token(
-            "6649989525:AAHgeYTN-x7jjZy2GHAxaCXBSwz-w6e_87c"
+            "6163736593:AAFRImnBRLZ3Ra7TRuECvoBT1juJQmNxUv8"
         ).build()
         logging.warning("Ligando o troço")
 

@@ -5,7 +5,7 @@ from redis import Redis
 
 from project.database import Database
 from project.metrics_collector import MetricsCollector
-from project.telegram_bot import TelegramBot, ImportantJobs
+from project.telegram_bot import ImportantJobs, TelegramBot
 from project.vectorizers import Vectorizers
 
 logging.getLogger().setLevel(logging.WARNING)
