@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 
 import requests
 from redis import Redis
@@ -51,10 +52,14 @@ class TelegramBot ():
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
         self.application = Application.builder().token(
-            "6163736593:AAFRImnBRLZ3Ra7TRuECvoBT1juJQmNxUv8"
+            "6649989525:AAHgeYTN-x7jjZy2GHAxaCXBSwz-w6e_87c"
         ).build()
+        logging.warning("Ligando o troço")
+
         self.metrics_collector = kwargs.get("metrics_collector")
         self.redis_client = kwargs.get("redis_client")
+
+        self.redis_client.set("send_first_promo", 1)
 
         self.list_product_conv = ConversationHandler(
             entry_points={
@@ -174,31 +179,6 @@ class TelegramBot ():
 
         except Exception:
             raise NetworkError("Erro ao enviar mensagem")
-
-    @classmethod
-    async def send_ngrok_message (cls, context: ContextTypes.DEFAULT_TYPE):
-        ngrok_servers = requests.get("http://ngrok-docker:4040/api/tunnels").json()
-
-        public_url = ngrok_servers["tunnels"][0]["public_url"]
-        message = f"ngrok url:\n\n{public_url}"
-        beautiful_msg = FormatPromoMessage.escape_msg(message)
-        await TelegramBot.enque_message(context, "783468028", beautiful_msg)
-
-        print("public_url", public_url)
-
-    async def get_user_msgs_from_redis (self, context: ContextTypes.DEFAULT_TYPE):
-        while True:
-            raw_data = self.redis_client.lpop("msgs_to_send")
-
-            if not raw_data:
-                break
-
-            data = json.loads(raw_data)
-            chat_id = data["chat_id"]
-            message = data["message"]
-
-            await self.enque_message(context, chat_id, message)
-            await asyncio.sleep(0.1)
 
     async def show_help (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         await update.message.reply_text(
@@ -514,19 +494,50 @@ class TelegramBot ():
 
         return SELECTING_ACTION
 
-async def main ():
-    db = Database()
-    vectorizers = Vectorizers()
-    telebot = TelegramBot(
-        database=db,
-        vectorizer=vectorizers
-    )
-    await telebot.iniatilize()
+class ImportantJobs:
+    repeating_jobs: list[str]
+    redis_client: Redis
 
-    while True:
-        await asyncio.sleep(1)
+    ONE_DAY: int = 86400
 
-if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
-    loop.close()
+    def __init__(self, redis_client: Redis) -> None:
+        self.redis_client = redis_client
+        self.repeating_jobs = [
+            "get_messages_and_send"
+        ]
+
+    # Tirar daqui depois "ah mas faz agr e bota em ingles"
+    # Nao, meu codigo minhas regras.
+    async def get_messages_and_send (self, context: ContextTypes.DEFAULT_TYPE):
+        while True:
+            raw_data = self.redis_client.lpop("msgs_to_send")
+
+            if not raw_data:
+                break
+
+            data = json.loads(raw_data)
+            chat_id = data["chat_id"]
+            message = data["message"]
+
+            await TelegramBot.enque_message(context, chat_id, message)
+            await asyncio.sleep(0.1)
+
+    async def sent_ngrok_msg (self, context: ContextTypes.DEFAULT_TYPE):
+        ngrok_servers = requests.get("http://ngrok-docker:4040/api/tunnels").json()
+
+        public_url = ngrok_servers["tunnels"][0]["public_url"]
+        message = f"ngrok url:\n\n{public_url}"
+        beautiful_msg = FormatPromoMessage.escape_msg(message)
+        await TelegramBot.enque_message(context, "783468028", beautiful_msg)
+
+        print("public_url", public_url)
+
+    async def reset_default_promo (self, context: ContextTypes.DEFAULT_TYPE):
+        self.redis_client.set("sent_first_promo", 1)
+
+    async def kill_container (self, context: ContextTypes.DEFAULT_TYPE):
+        for job_name in self.repeating_jobs:
+            for job in context.application.job_queue.get_jobs_by_name(job_name):
+                job.schedule_removal()
+
+        context.application.stop_running()
