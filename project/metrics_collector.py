@@ -12,18 +12,18 @@ class MetricsCollector:
 
         self.sites_returns_total = Counter(
             "telepromo_sites_returns_total", "Number of times each site was consumed and status",
-            labelnames=["site", "result_type"]
+            labelnames=[ "site", "result_type" ]
         )
 
         self.errors_counter = Counter(
             "telepromo_application_errors_total",
             "Number of errors in different application stages",
-            labelnames=["stage"]
+            labelnames=[ "stage" ]
         )
 
         self.user_requests_total = Counter(
             "telepromo_user_requests_total", "Number of requests made by users",
-            labelnames=["type"]
+            labelnames=[ "type" ]
         )
 
         self.user_sents_total = Counter(

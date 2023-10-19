@@ -4,8 +4,10 @@ import json
 import logging
 import time
 import traceback
+import threading
 
 from redis import Redis
+from telegram.ext import ContextTypes
 
 from project.database import Database
 from project.metrics_collector import MetricsCollector
@@ -38,6 +40,10 @@ class Monitoring (object):
         self.shortest_bot_time = 60 * 15
 
         self.first_sent = False
+
+        self.redis_client.set(
+            "stop_signal", 0
+        )
 
     async def prices_from_url (self, urls: list[dict], category: str) -> list:
         """
@@ -243,26 +249,8 @@ class Monitoring (object):
         links_cursor = self.database.get_links()
 
         logging.warning("Starting requests...")
-        tasks = [self.process_link(link_obj) for link_obj in links_cursor]
+        tasks = [ self.process_link(link_obj) for link_obj in links_cursor ]
         await asyncio.gather(*tasks)
 
         logging.warning("Verified all urls!")
         return True
-
-    async def _continuous_verify_price(self):
-        while True:
-            current_time = int(time.time())
-            elapsed = current_time - self.last_execution_time
-            print(current_time, elapsed)
-
-            if elapsed < self.shortest_bot_time:
-                logging.warning(
-                    "Ainda não se passaram "
-                    f"{int(self.shortest_bot_time / 60)} min {int(elapsed/60)}"
-                )
-
-            else:
-                await self.continuous_verify_price()
-                self.last_execution_time = current_time
-
-            await asyncio.sleep(60)

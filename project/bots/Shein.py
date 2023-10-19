@@ -41,7 +41,6 @@ class Shein (Bot):
             return False
 
         products_json = json.loads(products_json)
-        json.dump(products_json, open("shein.json", "w"))
         offers = products_json["contextForSSR"]["goods"]
         for offer in offers:
             extras = {}

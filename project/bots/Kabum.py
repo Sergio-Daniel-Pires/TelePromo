@@ -73,16 +73,27 @@ def name_to_url(text: str) -> str:
 class Kabum (Bot):
     async def get_prices (self, **kwargs):
         page = self.page
-
         results = []
 
-        api_link = (
-            "https://b2lq2jmc06.execute-api.us-east-1.amazonaws.com/PROD/ofertas?&campanha=HORADOPLAY&pagina=1&limite=1000&marcas=&ordem=&valor_min=&valor_max=&estrelas=&desconto_minimo=&desconto_maximo=&dep=&sec=&vendedor_codigo=&string=&app=1"  # noqa E501
-        )
+        await page.goto(self.link)
+
+        await page.wait_for_selector("#bannerPrincipal")
+
+        for campanha_bruta in await page.query_selector_all("#bannerPrincipal"):
+            campanha_href = await campanha_bruta.get_attribute("href")
+
+            if campanha_href.startswith("/ofertas/"):
+                campanha = campanha_href.split("/")[-1]
 
         try:
-            response = requests.get(api_link)
-            response = response.json()
+            api_link = (
+                f"https://b2lq2jmc06.execute-api.us-east-1.amazonaws.com/PROD/ofertas?&campanha={campanha}"
+                "&pagina=1&limite=1000&marcas=&ordem=&valor_min=&valor_max=&estrelas=&desconto_minimo="
+                "&desconto_maximo=&dep=&sec=&vendedor_codigo=&string=&app=1"
+            )
+            print(api_link)
+
+            response = requests.get(api_link).json()
 
             for offer in response["produtos"]:  # + response["encerradas"]:
                 extras = {}
@@ -123,8 +134,6 @@ class Kabum (Bot):
         except Exception as exc:
             logging.error(traceback.format_exc())
             logging.error(f"Invalid response: {exc}")
-
-        await page.goto(self.link)
 
         await page.wait_for_selector("section#blocoProdutosListagem")
 
@@ -185,6 +194,6 @@ if __name__ == "__main__":
     bot = Kabum()
     import asyncio
     results = asyncio.run(
-        bot.run(headless=False, link="https://www.kabum.com.br/ofertas/SEMANAGAMER")
+        bot.run(headless=False, link="https://www.kabum.com.br/")
     )
     print(results)

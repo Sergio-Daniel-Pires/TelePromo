@@ -30,9 +30,9 @@ LINKS = [
     {
         "category": "eletronicos",
         "links": [
-            Link("Kabum", "https://www.kabum.com.br/ofertas/SETEMBROTECH", 900),
+            Link("Kabum", "https://www.kabum.com.br", 900),
             Link("Terabyte", "https://www.terabyteshop.com.br/promocoes", 900),
-            Link("Pichau", "https://www.pichau.com.br/", 900),
+            Link("Pichau", "https://www.pichau.com.br", 900),
 
             # Aliexpress
             Link("Aliexpress", "https://pt.aliexpress.com/category/201000054/cellphones-telecommunications.html", 900),
