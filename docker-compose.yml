@@ -10,9 +10,12 @@ services:
       - ./db:/data/db
     networks:
       - network
+    logging:
+      driver: none
 
   redis:
     image: redis
+    container_name: tele-redis
     ports:
       - "6379:6379"
     networks:
@@ -27,6 +30,8 @@ services:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
       - network
+    #logging:
+    #  driver: none
 
   grafana:
     image: grafana/grafana
@@ -50,9 +55,9 @@ services:
     networks:
       - network
 
-  telepromo:
+  web-scrapper:
     depends_on: [mongodb, prometheus, redis]
-    container_name: tp01
+    container_name: web-scrapper
     environment:
       MONGO_URL: "mongodb"
       REDIS_URL: "redis"
@@ -68,7 +73,27 @@ services:
     networks:
       - network
     restart: always
-    command: ['python3', 'app.py']
+    command: ['python3', 'web_scrapper.py']
+
+  chat-bot:
+    depends_on: [mongodb, prometheus, redis, web-scrapper]
+    container_name: chat-bot
+    environment:
+      MONGO_URL: "mongodb"
+      REDIS_URL: "redis"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/telepromo
+    ports:
+      - "9092:9092"
+    expose:
+      - 9092
+    networks:
+      - network
+    restart: always
+    command: ['python3', 'chat_bot.py']
 
 networks:
   network:
