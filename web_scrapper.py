@@ -1,14 +1,13 @@
 import asyncio
 import logging
 import os
-import threading
+import time
 
 from redis import Redis
 
 from project.database import Database
 from project.metrics_collector import MetricsCollector
 from project.monitor import Monitoring
-from project.telegram_bot import TelegramBot
 from project.vectorizers import Vectorizers
 
 logging.getLogger().setLevel(logging.WARNING)
@@ -23,13 +22,6 @@ def main ():
         host=os.environ.get('REDIS_URL', 'localhost'), port=6379
     )
 
-    telegram_bot = TelegramBot(
-        database=db,
-        vectorizer=vectorizers,
-        metrics_collector=metrics,
-        redis_client=redis_client
-    )
-
     monitor = Monitoring(
         retry=3,
         database=db,
@@ -38,20 +30,22 @@ def main ():
         metrics_collector=metrics
     )
 
-    telegram_bot.application.job_queue.run_once(
-       telegram_bot.send_ngrok_message, 2
-    )
+    # Start continuos verify prices
+    while True:
+        current_time = int(time.time())
+        elapsed = current_time - monitor.last_execution_time
 
-    telegram_bot.application.job_queue.run_repeating(
-        telegram_bot.get_user_msgs_from_redis, 60, 5
-    )
+        if elapsed < monitor.shortest_bot_time:
+            logging.warning(
+                "Ainda não se passaram "
+                f"{int(monitor.shortest_bot_time / 60)} min {int(elapsed/60)}"
+            )
 
-    # Start Verify prices in a new Thread
-    threading.Thread(
-        target=asyncio.run, args=(monitor._continuous_verify_price(),)
-    ).start()
+        else:
+            asyncio.run(monitor.continuous_verify_price())
+            monitor.last_execution_time = current_time
 
-    telegram_bot.application.run_polling()
+        time.sleep(10)
 
 
 if __name__ == "__main__":
