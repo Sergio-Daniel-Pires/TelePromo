@@ -38,7 +38,8 @@ def main ():
         if elapsed < monitor.shortest_bot_time:
             logging.warning(
                 "Ainda não se passaram "
-                f"{int(monitor.shortest_bot_time / 60)} min {int(elapsed/60)}"
+                f"{int(monitor.shortest_bot_time / 60)} min "
+                f"{float(elapsed/60):.1f}"
             )
 
         else:
