@@ -27,7 +27,8 @@ class Monitoring (object):
     last_execution_time: int
     shortest_bot_time: int
 
-    first_sent: bool  # Only to try sent_msg
+    tested_categories: set  # Only to try all chats
+    tested_brands: set  # Only to try all chats
 
     def __init__ (self, **kwargs):
         self.retry = kwargs.get("retrys")
@@ -39,7 +40,8 @@ class Monitoring (object):
         self.last_execution_time = 0
         self.shortest_bot_time = 60 * 15
 
-        self.first_sent = False
+        self.tested_categories = set()
+        self.tested_brands = set()
 
         self.redis_client.set(
             "stop_signal", 0
@@ -156,7 +158,7 @@ class Monitoring (object):
                         self.metrics_collector.handle_site_results(bot_name, "new_price")
 
                     # Just to try msg are sent
-                    if not self.first_sent:
+                    if category not in self.tested_categories or bot_name not in self.tested_brands:
                         beautiful_msg = FormatPromoMessage.parse_msg(result, avarage, 1, bot_name)
 
                         self.redis_client.lpush(
@@ -164,7 +166,8 @@ class Monitoring (object):
                                 { "chat_id": "783468028", "message": beautiful_msg }
                             )
                         )
-                        self.first_sent = True
+                        self.tested_categories.add(category)
+                        self.tested_brands.add(bot_name)
 
                     all_wishes = self.database.find_all_wishes(tags)
 
@@ -245,10 +248,14 @@ class Monitoring (object):
 
             except Exception as exc:
                 logging.error(exc)
+            if len(ready_pages) >= 4:
+                break
 
         scrapper = base.BotBase(ready_pages, True)
         results = await scrapper.run()
-        await self.verify_save_prices(results)
-
         logging.warning("Verified all urls!")
+        await self.verify_save_prices(results)
+        logging.warning("Parsed all products found")
+        logging.warning("Finished pipeline")
+
         return True
