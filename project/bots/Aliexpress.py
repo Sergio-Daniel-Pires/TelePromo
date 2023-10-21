@@ -68,7 +68,6 @@ class Aliexpress (BotRunner):
         products_data = products_json["data"]["root"]["fields"]["mods"]["itemList"]
 
         for product_obj in products_data["content"]:
-            extras = {}
             product_id = product_obj["productId"]
 
             name = product_obj["title"]["seoTitle"]
@@ -80,7 +79,11 @@ class Aliexpress (BotRunner):
 
             for selling_point in product_obj.get("sellingPoints", []):
                 if "shipping" in selling_point["source"]:
-                    extras["shipping"] = selling_point["tagContent"]["tagText"]
+                    shipping = selling_point["tagContent"]["tagText"]
+                else:
+                    shipping = "Consulte o frete!"
+
+            extras = { "shipping": shipping }
 
             prices = product_obj["prices"]
 

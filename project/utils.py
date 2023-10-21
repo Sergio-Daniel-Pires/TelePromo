@@ -1,6 +1,6 @@
 import re
 
-import spacy
+from spacy.language import Language
 
 from project.stop_words import STOP_WORDS
 
@@ -35,8 +35,7 @@ def normalize_str (text: str) -> str:
 
     return text
 
-def remove_stop_words (normalized_product_name: str) -> tuple[list[str], list[str]]:
-    nlp = spacy.load("pt_core_news_sm")
+def remove_stop_words (normalized_product_name: str, nlp: Language) -> tuple[list[str], list[str]]:
     doc = nlp(normalized_product_name)
 
     tags = []

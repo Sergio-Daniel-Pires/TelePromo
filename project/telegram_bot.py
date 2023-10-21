@@ -530,7 +530,7 @@ class ImportantJobs:
         beautiful_msg = FormatPromoMessage.escape_msg(message)
         await TelegramBot.enque_message(context, "783468028", beautiful_msg)
 
-        print("public_url", public_url)
+        logging.warning("public_url", public_url)
 
     async def reset_default_promo (self, context: ContextTypes.DEFAULT_TYPE):
         self.redis_client.set("sent_first_promo", 1)

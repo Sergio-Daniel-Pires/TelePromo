@@ -1,9 +1,14 @@
 from enum import Enum
+from typing import Any
+import spacy
+
 
 from project.utils import normalize_str, remove_stop_words
 
 
 class Vectorizers (object):
+    trained_model: spacy.language.Language
+
     class Categorys (Enum):
         ELETRONICS = "eletronics"
         OTHERS = "others"
@@ -17,10 +22,11 @@ class Vectorizers (object):
         """
         # Paths
         self.categorys = self.Categorys
-        _ = kwargs.get("eletronic_model_path", "trains/eletronic_train.tlp")
-
         # Pickle load serialized trained model
         # self.eletronic_model = pickle.load(open(eletronic_model_path, "rb"))
+        _ = kwargs.get("eletronic_model_path", "trains/eletronic_train.tlp")
+
+        self.trained_model = spacy.load("pt_core_news_sm")
         self.eletronic_model = None
         self.funcs = {
             self.categorys.ELETRONICS.value: self.eletronic_model
@@ -38,11 +44,10 @@ class Vectorizers (object):
         """
         return self.funcs[category]
 
-    @classmethod
-    def extract_tags (cls, raw_product_name: str, category: str) -> tuple[list[str], list[str]]:
+    def extract_tags (self, raw_product_name: str, category: str) -> tuple[list[str], list[str]]:
         # Cutted function because vectorizer is not good (not enough data)
 
         normalized_product_name = normalize_str(raw_product_name)
-        product_tags, adjectives = remove_stop_words(normalized_product_name)
+        product_tags, adjectives = remove_stop_words(normalized_product_name, self.trained_model)
 
         return product_tags, adjectives
