@@ -3,7 +3,7 @@ from typing import Any
 
 import bson
 
-from project.utils import SECONDS_IN_DAY
+from project.utils import SECONDS_IN_DAY, name_to_object
 
 
 class User:
@@ -133,9 +133,7 @@ class FormatPromoMessage:
         url = result["url"]
 
         # Get custom promo message if needed
-        bot_module = importlib.import_module(f"project.bots.{bot_name}")
-        bot_class = getattr(bot_module, bot_name)
-        bot_instance = bot_class()
+        bot_instance = name_to_object[bot_name]
         output_msg = bot_instance.promo_message(result, avarage, prct_equal)
 
         output = cls.escape_msg(output_msg)

@@ -44,9 +44,9 @@ class Database:
         links = self.database["links"].find({})
         return links
 
-    def update_link (self, category: str, index: int, status: str, url: dict[str, str | int]):
+    def update_link (self, category: str, index: int, status: str, metadata: str):
         time_now = int(time.time())
-        base_repeat = url["base_repeat"]
+        base_repeat = metadata["base_repeat"]
 
         new_fields = {
             f"links.{index}.last": time_now,
@@ -54,12 +54,12 @@ class Database:
         }
 
         # reset repeat
-        if status == "OK" and url["repeat"] != base_repeat:
+        if status == "OK" and metadata["repeat"] != base_repeat:
             new_fields[f"links.{index}.repeat"] = base_repeat
 
         if status == "ERROR":
-            if url["repeat"] < 3600:
-                new_fields[f"links.{index}.repeat"] = url["repeat"] + 60 * 5
+            if metadata["repeat"] < 3600:
+                new_fields[f"links.{index}.repeat"] = metadata["repeat"] + 60 * 5
 
         self.database["links"].update_one(
             { "category": category },

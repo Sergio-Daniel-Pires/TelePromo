@@ -4,10 +4,24 @@ import spacy
 
 from project.stop_words import STOP_WORDS
 
+from project.bots import (
+    Adidas, Aliexpress, Cobasi, EstanteVirtual, Kabum, MadeiraMadeira, Nike,
+    Pichau, Shein, Terabyte
+)
+
+name_to_object = {
+    "Adidas": Adidas.Adidas, "Aliexpress": Aliexpress.Aliexpress,
+    "Cobasi": Cobasi.Cobasi, "EstanteVirtual": EstanteVirtual.EstanteVirtual,
+    "Kabum": Kabum.Kabum, "MadeiraMadeira": MadeiraMadeira.MadeiraMadeira,
+    "Nike": Nike.Nike, "Pichau": Pichau.Pichau, "Shein": Shein.Shein,
+    "Terabyte": Terabyte.Terabyte
+}
+
 DAYS_IN_YEAR = 365
 MINUTES_IN_DAY = 1440
 SECONDS_IN_HOUR = 3600
 SECONDS_IN_DAY = 86400
+
 
 def normalize_str (text: str) -> str:
     text = text.lower()
