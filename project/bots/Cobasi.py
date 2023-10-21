@@ -4,65 +4,80 @@ import re
 import traceback
 from enum import Enum
 from typing import Any
+from playwright.async_api import Page
 
 import requests
 
+from project.bots.base import UserMessages
+
 try:
-    from project.bots.base import Bot
+    from project.bots.base import BotRunner
 except Exception:
-    from base import Bot
+    from base import BotRunner
 
 class CobasiMessages(str, Enum):
     ALL_TAGS_MATCHED = (
-        "*{}*: OFERTA PRA VOCÊ! 🐶😺\n"   # Site name
+        "*{brand}*: OFERTA PRA VOCÊ! 🐶😺\n"   # Site name
         "\n"
-        "🔥🔥🔥 {}\n"                           # Product name
+        "🔥🔥🔥 {name}\n"                           # Product name
         "\n"
         "Preço 💵\n"
-        "R$ {:.2f}"                          # Price
+        "R$ {price:.2f}"                          # Price
         "\n"
         "\n"
         "🐶 Amigo Cobasi\n"
-        "R$ {:.2f}"                          # Prime price
+        "R$ {sub_price:.2f}"                          # Prime price
         "\n"
     )
 
     AVG_LOW = (
-        "*{}*: Baixou de preco!\n"        # Site name
+        "*{brand}*: Baixou de preco!\n"        # Site name
         "\n"
-        "🔥🔥 {}\n"                       # Product name
+        "🔥🔥 {name}\n"                       # Product name
         "Preço 💵\n"
         "\n"
-        "R$ {:.2f}\n"                  # Price
-        "Hist.: {}\n"                     # AVG Price
+        "R$ {price:.2f}\n"                  # Price
+        "Hist.: {avg}\n"                     # AVG Price
         "\n"
         "\n"
         "🐶 Amigo Cobasi\n"
-        "R$ {:.2f}"                    # Prime price
+        "R$ {sub_price:.2f}"                    # Prime price
         "\n"
     )
 
     MATCHED_OFFER = (
-        "*{}*: Recomendado pro seu Pet!\n"    # Site name
+        "*{brand}*: Recomendado pro seu Pet!\n"    # Site name
         "\n"
-        "🔥 {}\n"                        # Product name
+        "🔥 {name}\n"                        # Product name
         "Preço 💵\n"
-        "R$ {:.2f}"                   # Price
+        "R$ {price:.2f}"                   # Price
         "\n"
         "\n"
         "🐶 Amigo Cobasi\n"
-        "R$ {:.2f}"                   # Prime price
+        "R$ {sub_price:.2f}"                   # Prime price
         "\n"
     )
 
-class Cobasi (Bot):
-    async def get_prices (self, **kwargs):
-        page = self.page
+class Cobasi (BotRunner):
+    messages: Enum = CobasiMessages
+
+    def __init__(
+        self, link: str, index: int, category: str, messages: Enum = ...,
+        metadata: dict[str, Any] = {}
+    ) -> None:
+        super().__init__(link, index, category, messages, metadata)
+        self.messages = CobasiMessages
+
+    async def get_prices (self, page: Page):
+        results = []
+
+        await page.route("**/*", lambda route: route.abort()
+            if route.request.resource_type == "image"
+            else route.continue_()
+        )
 
         max_pages = 100
         last = None
-
-        results = []
 
         api_link = (
             "https://mid-back.cobasi.com.br/search/products?hotsite=menu-de-promocoes"
@@ -108,9 +123,7 @@ class Cobasi (Bot):
                     url = "https:" + offer["url"]
 
                     results.append(
-                        self.new_product(
-                            name, price, url, details, old_price, img, extras
-                        )
+                        self.new_product(name, price, url, details, old_price, img, extras)
                     )
 
             return results
@@ -120,40 +133,6 @@ class Cobasi (Bot):
             logging.error(f"Invalid response: {exc}")
 
         return results
-
-    def promo_message (
-        self, result: dict[str, Any], avarage: float, prct_equal: float
-    ):
-        brand = result["brand"]
-        product_name = result["name"]
-        details = result["details"].strip()
-        price = result["price"]
-        url = result["url"]
-        img = result["img"]
-
-        prime_price = result["extras"].get("sub_price", price)
-
-        if product_name == details:
-            details = ""
-
-        product_desc = f"{product_name}, {details}"
-
-        if prct_equal == 1:
-            message = CobasiMessages.ALL_TAGS_MATCHED.format(
-                brand, product_desc, price, prime_price, img, url
-            )
-
-        elif price < avarage:
-            message = CobasiMessages.AVG_LOW.format(
-                brand, product_desc, price, avarage, prime_price, img, url
-            )
-
-        else:
-            message = CobasiMessages.MATCHED_OFFER.format(
-                brand, product_desc, price, prime_price, img, url
-            )
-
-        return message
 
 
 if __name__ == "__main__":

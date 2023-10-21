@@ -1,22 +1,23 @@
 import logging
+from playwright.async_api import Page
 
 try:
-    from project.bots.base import Bot
+    from project.bots.base import BotRunner
 except Exception:
-    from base import Bot
+    from base import BotRunner
 
-class Adidas (Bot):
-    # Corrigir prices
-    async def get_prices (self, **kwargs):
-        page = self.page
-        await page.goto(kwargs.get("link"), timeout=12000)
-        all_results = []
+class Adidas (BotRunner):
+    async def get_prices (self, page: Page):
+        results = []
 
-        try:
-            await page.wait_for_selector("div.glass-product-card__assets", timeout=1000)
-        except Exception:
-            await page.screenshot(path="teste.jpg", full_page=True)
-            raise Exception("")
+        await page.route("**/*", lambda route: route.abort()
+            if route.request.resource_type == "image"
+            else route.continue_()
+        )
+
+        await page.goto(self.link, timeout=12000)
+
+        await page.wait_for_selector("div.glass-product-card__assets", timeout=1000)
 
         products = await page.query_selector_all("div.glass-product-card")
 
@@ -38,9 +39,9 @@ class Adidas (Bot):
             img = await (await product.query_selector("img")).get_attribute("src")
 
             logging.debug(__class__, old_price, price)
-            all_results.append(self.new_product(name, price, url, details, old_price, img))
+            results.append(self.new_product(name, price, url, details, old_price, img))
 
-        return all_results
+        return results
 
 
 if __name__ == "__main__":

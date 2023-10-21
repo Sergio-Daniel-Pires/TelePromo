@@ -3,55 +3,56 @@ import re
 import traceback
 from enum import Enum
 from typing import Any
+from playwright.async_api import Page
 
 import requests
 
 try:
-    from project.bots.base import Bot
+    from project.bots.base import BotRunner
 except Exception:
-    from base import Bot
+    from base import BotRunner
 
 
 class KabumMessages(str, Enum):
     ALL_TAGS_MATCHED = (
-        "*{}*: OFERTA NINJA PRA VOCÊ! 🥷😱\n"   # Site name
+        "*{brand}*: OFERTA NINJA PRA VOCÊ! 🥷😱\n"
         "\n"
-        "🔥🔥🔥 {}\n"                           # Product name
+        "🔥🔥🔥 {name}\n"
         "\n"
         "Preço 💵\n"
-        "R$ {:.2f}"                          # Price
+        "R$ {price:.2f}"
         "\n"
         "\n"
         "🥷 Prime\n"
-        "R$ {:.2f}"                          # Prime price
+        "R$ {prime_price:.2f}"
         "\n"
     )
 
     AVG_LOW = (
-        "*{}*: Baixou de preco!\n"        # Site name
+        "*{brand}*: Baixou de preco!\n"
         "\n"
-        "🔥🔥 {}\n"                       # Product name
+        "🔥🔥 {name}\n"
         "Preço 💵\n"
         "\n"
-        "R$ {:.2f}\n"                  # Price
-        "Hist.: {}\n"                     # AVG Price
+        "R$ {price:.2f}\n"                  # Price
+        "Hist.: {avg}\n"                     # AVG Price
         "\n"
         "\n"
         "🥷 Prime\n"
-        "R$ {:.2f}"                    # Prime price
+        "R$ {prime:.2f}"                    # Prime price
         "\n"
     )
 
     MATCHED_OFFER = (
-        "*{}*: 🥷 Ninja recomenda!\n"    # Site name
+        "*{brand}*: 🥷 Ninja recomenda!\n"    # Site name
         "\n"
-        "🔥 {}\n"                        # Product name
+        "🔥 {name}\n"                        # Product name
         "\n"
         "Preço 💵\n"
-        "R$ {:.2f}"                   # Price
+        "R$ {price:.2f}"                   # Price
         "\n"
         "🥷 Prime\n"
-        "R$ {:.2f}"                   # Prime price
+        "R$ {prime_price:.2f}"                   # Prime price
         "\n"
     )
 
@@ -70,10 +71,23 @@ def name_to_url(text: str) -> str:
 
     return transformed_string
 
-class Kabum (Bot):
-    async def get_prices (self, **kwargs):
-        page = self.page
+class Kabum (BotRunner):
+    messages: Enum = KabumMessages
+
+    def __init__(
+        self, link: str, index: int, category: str, messages: Enum = ...,
+        metadata: dict[str, Any] = {}
+    ) -> None:
+        super().__init__(link, index, category, messages, metadata)
+        self.messages = KabumMessages
+
+    async def get_prices (self, page: Page):
         results = []
+
+        await page.route("**/*", lambda route: route.abort()
+            if route.request.resource_type == "image"
+            else route.continue_()
+        )
 
         await page.goto(self.link)
 
@@ -154,40 +168,6 @@ class Kabum (Bot):
             )
 
         return results
-
-    def promo_message (
-        self, result: dict[str, Any], avarage: float, prct_equal: float
-    ):
-        brand = result["brand"]
-        product_name = result["name"]
-        details = result["details"].strip()
-        price = result["price"]
-        url = result["url"]
-        img = result["img"]
-
-        prime_price = result["extras"].get("prime_price", price)
-
-        if product_name == details:
-            details = ""
-
-        product_desc = f"{product_name}, {details}"
-
-        if prct_equal == 1:
-            message = KabumMessages.ALL_TAGS_MATCHED.format(
-                brand, product_desc, price, prime_price, img, url
-            )
-
-        elif price < avarage:
-            message = KabumMessages.AVG_LOW.format(
-                brand, product_desc, price, avarage, prime_price, img, url
-            )
-
-        else:
-            message = KabumMessages.MATCHED_OFFER.format(
-                brand, product_desc, price, prime_price, img, url
-            )
-
-        return message
 
 
 if __name__ == "__main__":

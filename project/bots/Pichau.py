@@ -1,32 +1,36 @@
 import asyncio
 import logging
+from playwright.async_api import Page
 
 try:
-    from project.bots.base import Bot
+    from project.bots import base
 except Exception:
-    from base import Bot
+    import base
 
 
-class Pichau (Bot):
+class Pichau (base.BotRunner):
     # Funcionando
-    async def get_prices (self, **kwargs):
-        page = self.page
+    async def get_prices (self, page: Page):
+        results = []
+        await page.route("**/*", lambda route: route.abort()
+            if route.request.resource_type == "image"
+            else route.continue_()
+        )
+        #page.on("console", lambda msg: print(f"error: {msg.text}") if msg.type == "error" else None)
 
-        page.on("console", lambda msg: print(f"error: {msg.text}") if msg.type == "error" else None)
-
-        await page.goto(kwargs.get("link"), timeout=0, wait_until="domcontentloaded")
-        all_results = []
+        await page.goto(self.link, timeout=0, wait_until="domcontentloaded")
 
         await page.evaluate("window.scrollTo(0, document.body.scrollHeight * .2);")
 
         try:
+            # BUG nao visivel
             await page.wait_for_selector("a[data-cy='list-product']")
         except Exception as exc:
             await page.screenshot(path="Pichau.jpg")
 
             raise exc
 
-        await self.scroll_to_bottom(wait_before_roll=0.3)
+        await self.scroll_to_bottom(page, wait_before_roll=0.3)
 
         second_section = (await page.query_selector_all("section"))[1]
 
@@ -74,16 +78,18 @@ class Pichau (Bot):
                 img = None
 
             logging.debug(__class__, old_price, price)
-            all_results.append(
+            results.append(
                 self.new_product(name, price, url, details, old_price, img)
             )
 
-        return all_results
+        return results
 
 
 if __name__ == "__main__":
-    bot = Pichau()
-    results = asyncio.run(
-        bot.run(headless=False, link="https://www.pichau.com.br")
-    )
-    print(results)
+    ready_pages = [ Pichau(
+        link="https://www.pichau.com.br", index=0,
+        category="eletronics"
+    ) ]
+    scrapper = base.BotBase(ready_pages, True)
+    results = asyncio.run(scrapper.run())
+    print(results[0].results)

@@ -1,18 +1,28 @@
 import logging
+import asyncio
+from playwright.async_api import Page
 
 try:
-    from project.bots.base import Bot
+    from project.bots import base
 except Exception:
-    from base import Bot
+    import base
 
-class Terabyte (Bot):
+class Terabyte (base.BotRunner):
     # Funcionando
-    async def get_prices (self, **kwargs):
-        page = self.page
-        await page.goto(kwargs.get("link"), timeout=12000)
-        all_results = []
+    async def get_prices (self, page: Page):
+        results = []
 
-        await page.wait_for_selector("div.col-xs-12.col-sm-12.col-md-12.nopadding")
+        await page.route("**/*", lambda route: route.abort()
+            if route.request.resource_type == "image"
+            else route.continue_()
+        )
+        await page.goto(self.link)
+
+        try:
+            # BUG nao visivel
+            await page.wait_for_selector("div.col-xs-12.col-sm-12.col-md-12.nopadding")
+        except Exception as exc:
+            await page.screenshot(path="Terabyte.jpg")
 
         products = await page.query_selector_all(".pbox")
         for product in products:
@@ -39,15 +49,16 @@ class Terabyte (Bot):
             img = await (await product.query_selector("img")).get_attribute("src")
 
             logging.debug(__class__, old_price, price)
-            all_results.append(self.new_product(name, price, url, details, old_price, img))
+            results.append(self.new_product(name, price, url, details, old_price, img))
 
-        return all_results
+        return results
 
 
 if __name__ == "__main__":
-    bot = Terabyte()
-    import asyncio
-    results = asyncio.run(
-        bot.run(headless=True, link="https://www.terabyteshop.com.br/promocoes")
-    )
+    ready_pages = [ Terabyte(
+        link="https://www.terabyteshop.com.br/promocoes", index=0,
+        category="eletronics"
+    ) ]
+    scrapper = base.BotBase(ready_pages, True)
+    results = asyncio.run(scrapper.run())
     print(results)

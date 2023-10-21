@@ -1,12 +1,14 @@
 import asyncio
+from enum import Enum
 from typing import Any
+from playwright.async_api import Page
 
 try:
     from project.bots.Aliexpress import InternationalMessages
-    from project.bots.base import Bot
+    from project.bots.base import BotRunner
 
 except Exception:
-    from base import Bot
+    from base import BotRunner
     from Aliexpress import InternationalMessages
 
 import json
@@ -16,15 +18,22 @@ def build_url (url_name: str, id: int, cat_id: int):
     url_name = url_name.replace(" ", "-")
     return f"https://m.shein.com/br/{url_name}-p-{id}-cat-{cat_id}.html"
 
-class Shein (Bot):
-    # Corrigir prices
-    async def get_prices (self, **kwargs):
-        page = self.page
+class Shein (BotRunner):
+    messages: Enum = InternationalMessages
 
+    def __init__(
+        self, link: str, index: int, category: str, messages: Enum = ...,
+        metadata: dict[str, Any] = {}
+    ) -> None:
+        super().__init__(link, index, category, messages, metadata)
+        self.messages = InternationalMessages
+
+    # Corrigir prices
+    async def get_prices (self, page: Page):
         results = []
 
         await page.goto(self.link, timeout=30000)
-        await self.scroll_to_bottom()
+        await self.scroll_to_bottom(page)
 
         raw_products_json = await page.locator(
             "//script[text()[contains(.,'var _constants')]]"
@@ -68,39 +77,6 @@ class Shein (Bot):
             )
 
         return results
-
-    def promo_message (
-        self, result: dict[str, Any], avarage: float, prct_equal: float
-    ):
-        brand = result["brand"]
-        product_name = result["name"]
-        details = result["details"].strip()
-        price = result["price"]
-        url = result["url"]
-        img = result["img"]
-        shipping = result.get("shipping", "Consulte o Frete!")
-
-        if product_name == details:
-            details = ""
-
-        product_desc = f"{product_name}, {details}"
-
-        if prct_equal == 1:
-            message = InternationalMessages.ALL_TAGS_MATCHED.format(
-                brand, product_desc, shipping, price, img, url
-            )
-
-        elif price < avarage:
-            message = InternationalMessages.AVG_LOW.format(
-                brand, product_desc, shipping, price, avarage, img, url
-            )
-
-        else:
-            message = InternationalMessages.MATCHED_OFFER.format(
-                brand, product_desc, shipping, price, img, url
-            )
-
-        return message
 
 
 if __name__ == "__main__":

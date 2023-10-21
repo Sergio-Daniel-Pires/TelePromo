@@ -1,14 +1,21 @@
-try:
-    from project.bots.base import Bot
-except Exception:
-    from base import Bot
+from playwright.async_api import Page
 
-class Nike (Bot):
+try:
+    from project.bots.base import BotRunner
+except Exception:
+    from base import BotRunner
+
+class Nike (BotRunner):
     # Funcionando
-    async def get_prices (self, **kwargs):
-        page = self.page
-        await page.goto(kwargs.get("link"), timeout=12000)
-        all_results = []
+    async def get_prices (self, page: Page):
+        results = []
+
+        await page.route("**/*", lambda route: route.abort()
+            if route.request.resource_type == "image"
+            else route.continue_()
+        )
+
+        await page.goto(self.link)
 
         await page.wait_for_selector("div.bPRNCw")
 
@@ -35,9 +42,9 @@ class Nike (Bot):
             if "image/gif;base64," in img:
                 img = None
 
-            all_results.append(self.new_product(name, price, url, details, old_price, img))
+            results.append(self.new_product(name, price, url, details, old_price, img))
 
-        return all_results
+        return results
 
 
 if __name__ == "__main__":

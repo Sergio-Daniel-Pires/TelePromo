@@ -7,68 +7,61 @@ from enum import Enum
 from typing import Any
 
 from playwright.async_api import async_playwright
-from playwright.async_api._generated import BrowserType, Page
+from playwright.async_api._generated import Browser, Page, BrowserContext
 
 
 class UserMessages(str, Enum):
     ALL_TAGS_MATCHED = (
-        "*{}*: SUPER OFERTA PRA VOCE! 😱😱\n"   # Site name
+        "*{brand}*: SUPER OFERTA PRA VOCE! 😱😱\n"   # Site name
         "\n"
-        "🔥🔥🔥 {}\n"                           # Product name
+        "🔥🔥🔥 {name}\n"                           # Product name
         "\n"
-        "R$ {:.2f} 💵"                          # Price
+        "R$ {price:.2f} 💵"                          # Price
         "\n"
     )
 
     AVG_LOW = (
-        "*{}*: Baixou de preco!\n"        # Site name
+        "*{brand}*: Baixou de preco!\n"        # Site name
         "\n"
-        "🔥🔥 {}\n"                       # Product name
+        "🔥🔥 {name}\n"                       # Product name
         "\n"
-        "R$ {:.2f} 💵\n"                  # Price
-        "Hist.: {}\n"                     # AVG Price
+        "R$ {price:.2f} 💵\n"                  # Price
+        "Hist.: {avg}\n"                     # AVG Price
         "\n"
     )
 
     MATCHED_OFFER = (
-        "*{}*: Você também pode gostar!\n"    # Site name
+        "*{brand}*: Você também pode gostar!\n"    # Site name
         "\n"
-        "🔥 {}\n"                             # Product name
+        "🔥 {name}\n"                             # Product name
         "\n"
-        "R$ {:.2f} 💵"                        # Price
+        "R$ {price:.2f} 💵"                        # Price
         "\n"
     )
 
-class Bot (ABC):
-    browser: BrowserType
+class BotRunner(ABC):
     link: str
-    page: Page
-    headless: bool
     brand: str
+    index: int
+    metadata: dict[str, Any]
+    messages: Enum = UserMessages
 
-    user_agent: str = (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        "(KHTML, like Gecko) Chrome/84.0.4147.105 Safari/537.36"
-    )
+    is_ok: bool
+    results: list[dict[str, Any]]
 
-    async def run (self, **kwargs):
-        headless = kwargs.get("headless", True)
-        self.link = kwargs["link"]
-        self.brand = kwargs.get("brand", "Teste")
+    def __init__(
+        self, link: str, index: int, category: str, messages: Enum = UserMessages,
+        metadata: dict[str, Any] = {}
+    ) -> None:
+        self.link = link
+        self.index = index
+        self.category = category
+        self.metadata = metadata
+        self.messages = messages
 
-        async with async_playwright() as playwright:
-            self.browser = await playwright.chromium.launch(
-                headless=headless
-            )
-            self.page = await self.browser.new_page(
-                user_agent=self.user_agent
-            )
-
-            result = await self.get_prices(**kwargs)
-
-            await self.browser.close()
-
-        return result
+        self.brand = self.__class__.__name__
+        self.is_ok = None
+        self.results = []
 
     @classmethod
     def format_money (cls, value: str) -> float:
@@ -88,23 +81,34 @@ class Bot (ABC):
             logging.error(traceback.format_exc())
             return None
 
-    async def scroll_to_bottom (
-        self, rolls: int = 8, prct: int = 5, wait_before_roll: float = 0.3
-    ) -> None:
-        for i in range(rolls):
-            await self.page.evaluate(
-                f"window.scrollTo(0, document.body.scrollHeight * .{i//2 + prct});"
-            ),
-            await asyncio.sleep(wait_before_roll)
+    @classmethod
+    def promo_message (
+        cls, result: dict[str, Any], avarage: float, prct_equal: float
+    ):
+
+        format_dict = { "prct_equal": prct_equal, "avg": avarage }
+        format_dict.update(result)
+        format_dict.update(result["extras"])
+
+        if prct_equal == 1:
+            message = cls.messages.ALL_TAGS_MATCHED
+
+        elif format_dict["price"] < avarage:
+            message = cls.messages.AVG_LOW
+
+        else:
+            message = cls.messages.MATCHED_OFFER
+
+        return message.format(**format_dict)
 
     def new_product (
         self, name: str, price: str, url: str, details: str = None,
         old_price: str = None, img: str = None, extras: dict[str, Any] = {}
     ):
         product = {
-            "bot": self.__class__.__name__, "name": name, "details": details,
-            "price": price, "old_price": old_price, "url": url, "img": img,
-            "brand": self.brand, "extras": extras
+            "bot": self.__class__.__name__, "category": self.category, "name": name,
+            "details": details, "price": price, "old_price": old_price, "url": url,
+            "img": img, "brand": self.brand, "extras": extras
         }
 
         if details is None and "," in name:
@@ -112,6 +116,10 @@ class Bot (ABC):
 
         if details is None:
             product["details"] = ""
+
+        splitted = details.split(" ") if details is not None else ""
+        if len(splitted) > 15:
+            details = " ".join(splitted[:15]) + "..."
 
         for key in ( "name", "details" ):
             if product[key]:
@@ -127,38 +135,88 @@ class Bot (ABC):
 
         return product
 
+    async def scroll_to_bottom (
+        cls, page: Page, rolls: int = 8, prct: int = 5, wait_before_roll: float = 0.3
+    ) -> None:
+        for i in range(rolls):
+            await page.evaluate(
+                f"window.scrollTo(0, document.body.scrollHeight * .{i//2 + prct});"
+            ),
+            await asyncio.sleep(wait_before_roll)
+
     @abstractmethod
-    async def get_prices (self):
+    async def get_prices (self, tab: Page):
         ...
 
-    def promo_message (
-        self, result: dict[str, Any], avarage: float, prct_equal: float
-    ):
-        brand = result["brand"]
-        product_name = result["name"]
-        details = result["details"].strip()
-        price = result["price"]
-        url = result["url"]
-        img = result["img"]
+class BotBase:
+    browser: Browser
+    context: BrowserContext
+    headless: bool
 
-        if product_name == details:
-            details = ""
+    waiting_pages: list[BotRunner]
+    limit_pages: int = 2
+    page_time_limit: int = 60 * 5  # Five minutes for tab
 
-        product_desc = f"{product_name}, {details}"
+    user_agent: str = (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        "(KHTML, like Gecko) Chrome/84.0.4147.105 Safari/537.36"
+    )
 
-        if prct_equal == 1:
-            message = UserMessages.ALL_TAGS_MATCHED.format(
-                brand, product_desc, price, img, url
-            )
+    def __init__(self, waiting_pages: list[BotRunner], headless: bool = True) -> None:
+        self.waiting_pages = waiting_pages
+        self.headless = headless
 
-        elif price < avarage:
-            message = UserMessages.AVG_LOW.format(
-                brand, product_desc, price, avarage, img, url
-            )
+    async def run (self) -> list[BotRunner]:
+        semaphore = asyncio.Semaphore(self.limit_pages)
+        results = []
 
-        else:
-            message = UserMessages.MATCHED_OFFER.format(
-                brand, product_desc, price, img, url
-            )
+        async with async_playwright() as playwright:
+            self.browser = await playwright.chromium.launch(headless=self.headless)
+            self.context = await self.browser.new_context(user_agent=self.user_agent)
 
-        return message
+            tasks = []
+            for tab in self.waiting_pages:
+                tasks.append(
+                    asyncio.ensure_future(self.run_tab(tab, semaphore))
+                )
+
+            for future_task in asyncio.as_completed(tasks):
+                bot_result = await future_task
+                results.append(bot_result)
+
+            await self.browser.close()
+
+        return results
+
+    async def run_tab (
+        self, tab: BotRunner, sem: asyncio.Semaphore
+    ) -> BotRunner:
+        async with sem:
+            page = await self.context.new_page()
+
+            # Get price or None
+            bot_full_name = f"{tab.category}|{tab.brand}#{tab.index}"
+            logging.warning(f"Trying to run {bot_full_name}")
+
+            try:
+                results = await asyncio.wait_for(
+                    tab.get_prices(page),
+                    60 * 3
+                )
+                tab.is_ok = True
+                tab.results = results
+                logging.warning(
+                    f"{bot_full_name}: {len(results)} found products."
+                )
+            except TimeoutError as exc:
+                tab.is_ok = False
+                f"{bot_full_name}: Timeout"
+            except Exception as exc:
+                tab.is_ok = False
+                logging.error(
+                    f"{bot_full_name}: Error ({str(exc)})."
+                )
+
+            await page.close()
+
+            return tab

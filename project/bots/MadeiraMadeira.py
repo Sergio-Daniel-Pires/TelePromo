@@ -1,21 +1,25 @@
 import logging
+from playwright.async_api import Page
 
 try:
-    from project.bots.base import Bot
+    from project.bots.base import BotRunner
 except Exception:
-    from base import Bot
+    from base import BotRunner
 
 
-class MadeiraMadeira (Bot):
+class MadeiraMadeira (BotRunner):
     """
     Erros:
     img nao funciona
     """
-    async def get_prices (self, **kwargs):
-        page = self.page
+    async def get_prices (self, page: Page):
+        results = []
+        await page.route("**/*", lambda route: route.abort()
+            if route.request.resource_type == "image"
+            else route.continue_()
+        )
 
         await page.goto(self.link, timeout=12000)
-        results = []
 
         await page.wait_for_selector("article")
 

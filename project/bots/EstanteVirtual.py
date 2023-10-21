@@ -1,14 +1,21 @@
+from playwright.async_api import Page
+
 try:
-    from project.bots.base import Bot
+    from project.bots.base import BotRunner
 except Exception:
-    from base import Bot
+    from base import BotRunner
 
 
-class EstanteVirtual (Bot):
-    async def get_prices (self, **kwargs):
-        page = self.page
-        await page.goto(kwargs.get("link"))
-        all_results = []
+class EstanteVirtual (BotRunner):
+    async def get_prices (self, page: Page):
+        results = []
+
+        await page.route("**/*", lambda route: route.abort()
+            if route.request.resource_type == "image"
+            else route.continue_()
+        )
+
+        await page.goto(self.link)
 
         # Erro de waiting to be visible
         await page.wait_for_selector("div.VueCarousel-wrapper")
@@ -29,7 +36,7 @@ class EstanteVirtual (Bot):
         """)
         for result in results:
             result["price"] = float((result["price"][3:].replace(".", "")).replace(",", "."))
-            all_results.append(result)
+            results.append(result)
             """
             next_button_class = document.querySelector("a[class="nextLink"]")
             next_button = await page.evaluate(next_button_class)

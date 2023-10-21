@@ -1,82 +1,62 @@
 import asyncio
 from enum import Enum
 from typing import Any
+from playwright.async_api import Page
 
 try:
-    from project.bots.base import Bot
+    from project.bots.base import BotRunner
 except Exception:
-    from base import Bot
+    from base import BotRunner
 
 import json
 
 
 class InternationalMessages(str, Enum):
     ALL_TAGS_MATCHED = (
-        "*{}*: SUPER OFERTA PRA VOCE! 😱😱\n"   # Site name
+        "*{brand}*: SUPER OFERTA PRA VOCE! 😱😱\n"   # Site name
         "\n"
-        "🔥🔥🔥 {}\n"                           # Product name
-        "{}\n"                                  # Frete
+        "🔥🔥🔥 {name}\n"                           # Product name
+        "{shipping}\n"                                  # Frete
         "\n"
-        "R$ {:.2f} 💵"                          # Price
+        "R$ {price:.2f} 💵"                          # Price
         "\n"
     )
 
     AVG_LOW = (
-        "*{}*: Baixou de preco!\n"        # Site name
+        "*{brand}*: Baixou de preco!\n"        # Site name
         "\n"
-        "🔥🔥 {}\n"                       # Product name
-        "{}\n"                            # Frete
+        "🔥🔥 {name}\n"                       # Product name
+        "{shipping}\n"                            # Frete
         "\n"
-        "R$ {:.2f} 💵\n"                  # Price
-        "Hist.: {}\n"                     # AVG Price
+        "R$ {price:.2f} 💵\n"                  # Price
+        "Hist.: {avg}\n"                     # AVG Price
         "\n"
     )
 
     MATCHED_OFFER = (
-        "*{}*: Você também pode gostar!\n"    # Site name
+        "*{brand}*: Você também pode gostar!\n"    # Site name
         "\n"
-        "🔥 {}\n"                             # Product name
-        "{}\n"                                # Frete
+        "🔥 {name}\n"                             # Product name
+        "{shipping}\n"                                # Frete
         "\n"
-        "R$ {:.2f} 💵"                        # Price
+        "R$ {price:.2f} 💵"                        # Price
         "\n"
     )
 
-class Aliexpress (Bot):
-    async def try_reload_aliexpress (self):
-        items = asyncio.create_task(
-            self.page.wait_for_selector("a.search-card-item"), name="grid_items"
-        )
+class Aliexpress (BotRunner):
+    messages: Enum = InternationalMessages
 
-        wrong_line = asyncio.create_task(
-            self.page.wait_for_selector("span.comet-icon"), name="wrong"
-        )
-        correct = False
-
-        for _ in range(3):
-            _, _ = await asyncio.wait(
-                (items, wrong_line),
-                return_when=asyncio.FIRST_COMPLETED
-            )
-            if items.done():
-                wrong_line.cancel()
-                correct = True
-                break
-
-            else:
-                await self.page.reload()
-
-        if not correct:
-            raise Exception("Impossible to load grid items")
-
-    async def get_prices (self, **kwargs):
-        page = self.page
-
+    async def get_prices (self, page: Page):
         results = []
+
+        await page.route("**/*", lambda route: route.abort()
+            if route.request.resource_type == "image"
+            else route.continue_()
+        )
 
         await page.goto(self.link, timeout=30000)
 
-        await self.try_reload_aliexpress()
+        await self.try_reload_aliexpress(page)
 
         raw_products_json = await page.locator(
             "//script[text()[contains(.,'window._dida_config_._init_data_=')]]"
@@ -111,45 +91,35 @@ class Aliexpress (Bot):
             if original_price:
                 old_price = original_price["minPrice"]
 
-            results.append(
-                self.new_product(name, price, url, details, old_price, img, extras)
-            )
+            results.append(self.new_product(name, price, url, details, old_price, img, extras))
 
         return results
 
-    def promo_message (
-        self, result: dict[str, Any], avarage: float, prct_equal: float
-    ):
-        brand = result["brand"]
-        product_name = result["name"]
-        details = result["details"].strip()
-        price = result["price"]
-        url = result["url"]
-        img = result["img"]
-        shipping = result.get("shipping", "Consulte o Frete!")
+    async def try_reload_aliexpress (self, page: Page):
+        items = asyncio.create_task(
+            page.wait_for_selector("a.search-card-item"), name="grid_items"
+        )
 
-        if product_name == details:
-            details = ""
+        wrong_line = asyncio.create_task(
+            page.wait_for_selector("span.comet-icon"), name="wrong"
+        )
+        correct = False
 
-        product_desc = f"{product_name}, {details}"
-
-        if prct_equal == 1:
-            message = InternationalMessages.ALL_TAGS_MATCHED.format(
-                brand, product_desc, shipping, price, img, url
+        for _ in range(3):
+            _, _ = await asyncio.wait(
+                (items, wrong_line),
+                return_when=asyncio.FIRST_COMPLETED
             )
+            if items.done():
+                wrong_line.cancel()
+                correct = True
+                break
 
-        elif price < avarage:
-            message = InternationalMessages.AVG_LOW.format(
-                brand, product_desc, shipping, price, avarage, img, url
-            )
+            else:
+                await page.reload()
 
-        else:
-            message = InternationalMessages.MATCHED_OFFER.format(
-                brand, product_desc, shipping, price, img, url
-            )
-
-        return message
-
+        if not correct:
+            raise Exception("Impossible to load grid items")
 
 if __name__ == "__main__":
     bot = Aliexpress()
