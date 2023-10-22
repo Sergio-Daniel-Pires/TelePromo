@@ -248,8 +248,6 @@ class Monitoring (object):
 
             except Exception as exc:
                 logging.error(exc)
-            if len(ready_pages) >= 4:
-                break
 
         scrapper = base.BotBase(ready_pages, True)
         results = await scrapper.run()
