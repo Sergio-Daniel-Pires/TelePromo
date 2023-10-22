@@ -42,9 +42,9 @@ def main ():
     telegram_bot.application.job_queue.run_once(important_jobs.reset_default_promo, 7)
 
     # Kill container in 24 hours (or 86400 seconds)
-    telegram_bot.application.job_queue.run_once(
-        important_jobs.kill_container, important_jobs.ONE_DAY, name="get_messages_and_send"
-    )
+    # telegram_bot.application.job_queue.run_once(
+    #     important_jobs.kill_container, important_jobs.ONE_DAY, name="get_messages_and_send"
+    # )
 
     telegram_bot.application.run_polling()
 

@@ -10,8 +10,12 @@ services:
       - ./db:/data/db
     networks:
       - network
-    logging:
-      driver: none
+    deploy:
+      resources:
+        limits:
+          memory: 2gb
+        reservations:
+          memory: 1gb
 
   redis:
     image: redis
