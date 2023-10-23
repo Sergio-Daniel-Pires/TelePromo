@@ -5,12 +5,12 @@ import time
 import traceback
 
 from redis import Redis
-from typing import Any
 
 from project.database import Database
 from project.metrics_collector import MetricsCollector
 from project.models import FormatPromoMessage, Price, Product
 from project.vectorizers import Vectorizers
+from project.timer import Timer
 
 from project.bots import base
 from project.utils import name_to_object
@@ -99,30 +99,35 @@ class Monitoring (object):
                 bot_result.category, bot_result.index, is_ok, bot_result.metadata
             )
 
-            for result in bot_result.results:
+            for offer in bot_result.results:
 
-                bot_name = result["bot"]
-                category = result["category"]
+                bot_name = offer["bot"]
+                category = offer["category"]
 
+                timer = Timer()
                 try:
-                    name = result["name"].replace("\n", " ")
+                    name = offer["name"].replace("\n", " ")
 
                     # Get only relevant names from raw name
+                    timer.next("Extract Tags")
                     tags, adjectives = self.vectorizer.extract_tags(name, category)
                     if tags == []:
                         continue
+                    timer.next("Extract Tags")
 
-                    price = result["price"]
-                    old_price = result["old_price"]
+                    price = offer["price"]
+                    old_price = offer["old_price"]
 
                     product_obj = Product(
                         raw_name=name, category=category, tags=tags, adjectives=adjectives,
                         price=price, history=[]
                     )
 
+                    timer.next("Find product")
                     new_product, product_dict = self.database.find_product(product_obj)
                     if new_product:
                         self.metrics_collector.handle_site_results(bot_name, "new_product")
+                    timer.next("Find product")
 
                     # New product
                     product_obj = Product(**product_dict)
@@ -132,23 +137,25 @@ class Monitoring (object):
                         logging.error("Mismatch price error (not valid float), skipping...")
                         logging.error(traceback.format_exc())
 
-                    is_promo = result.get("promo", None)
+                    is_promo = offer.get("promo", None)
 
                     if is_promo is None and (old_price < price):
                         is_promo = True
 
-                    is_affiliate = result.get("is_affiliate", None)
-                    url = result.get("url", "")
-                    extras = result.get("extras", {})
+                    is_affiliate = offer.get("is_affiliate", None)
+                    url = offer.get("url", "")
+                    extras = offer.get("extras", {})
 
                     new_price = Price(
                         date=today, price=price, old_price=old_price, is_promo=is_promo,
                         is_affiliate=is_affiliate, url=url, extras=extras
                     )
 
+                    timer.next("Verify or add price")
                     is_new_price, price_obj, price_index = self.database.verify_or_add_price(
                         tags, new_price, product_obj
                     )
+                    timer.next("Verify or add price")
 
                     avarage = price
                     if not new_product:
@@ -159,7 +166,7 @@ class Monitoring (object):
 
                     # Just to try msg are sent
                     if category not in self.tested_categories or bot_name not in self.tested_brands:
-                        beautiful_msg = FormatPromoMessage.parse_msg(result, avarage, 1, bot_name)
+                        beautiful_msg = FormatPromoMessage.parse_msg(offer, avarage, 1, bot_name)
 
                         self.redis_client.lpush(
                             "msgs_to_send", json.dumps(
@@ -169,6 +176,7 @@ class Monitoring (object):
                         self.tested_categories.add(category)
                         self.tested_brands.add(bot_name)
 
+                    timer.next("Find wishes")
                     all_wishes = self.database.find_all_wishes(tags)
 
                     for wish in all_wishes:
@@ -208,7 +216,7 @@ class Monitoring (object):
                                 continue
 
                             beautiful_msg = FormatPromoMessage.parse_msg(
-                                result, avarage, prct_equal, bot_name
+                                offer, avarage, prct_equal, bot_name
                             )
                             # Add to background queue
                             self.redis_client.lpush(
@@ -221,6 +229,9 @@ class Monitoring (object):
                                 product_obj._id, price_index, user_id, 1
                             )
                             self.metrics_collector.handle_user_response()
+
+                    timer.next("Find wishes")
+                    timer.finish()
 
                 except Exception:
                     self.metrics_collector.handle_site_results(bot_name, "error")
@@ -245,6 +256,8 @@ class Monitoring (object):
 
                 # Get raw results from web scraping
                 ready_pages += self.verify_ready_pages(url_list, category)
+                if len(ready_pages) >= 4:
+                    break
 
             except Exception as exc:
                 logging.error(exc)
