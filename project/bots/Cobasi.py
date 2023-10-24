@@ -4,9 +4,9 @@ import re
 import traceback
 from enum import Enum
 from typing import Any
-from playwright.async_api import Page
 
 import requests
+from playwright.async_api import Page
 
 from project.bots.base import UserMessages
 

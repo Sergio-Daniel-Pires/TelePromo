@@ -1,6 +1,7 @@
 import asyncio
 from enum import Enum
 from typing import Any
+
 from playwright.async_api import Page
 
 try:

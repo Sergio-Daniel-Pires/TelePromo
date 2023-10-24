@@ -1,9 +1,7 @@
 import re
 
-from project.bots import (
-    Adidas, Aliexpress, Cobasi, EstanteVirtual, Kabum, MadeiraMadeira, Nike,
-    Pichau, Shein, Terabyte
-)
+from project.bots import (Adidas, Aliexpress, Cobasi, EstanteVirtual, Kabum,
+                          MadeiraMadeira, Nike, Pichau, Shein, Terabyte)
 
 name_to_object = {
     "Adidas": Adidas.Adidas, "Aliexpress": Aliexpress.Aliexpress,
@@ -56,5 +54,7 @@ def normalize_str (text: str) -> str:
     text = re.sub(r"[ûúùü]", "u", text)
     text = re.sub(r"[ñ]", "n", text)
     text = re.sub(r",\s+|\.\s+|\s-\s", " ", text)
+
+    text = " ".join(text.split(" ")[:20])
 
     return text

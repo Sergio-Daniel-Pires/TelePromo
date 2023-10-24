@@ -6,14 +6,14 @@ import traceback
 
 from redis import Redis
 
+from project.bots import base
 from project.database import Database
 from project.metrics_collector import MetricsCollector
 from project.models import FormatPromoMessage, Price, Product
-from project.vectorizers import Vectorizers
 from project.timer import Timer
-
-from project.bots import base
 from project.utils import name_to_object
+from project.vectorizers import Vectorizers
+
 
 class Monitoring (object):
     """
@@ -30,6 +30,8 @@ class Monitoring (object):
     tested_categories: set  # Only to try all chats
     tested_brands: set  # Only to try all chats
 
+    today_offers: dict
+
     def __init__ (self, **kwargs):
         self.retry = kwargs.get("retrys")
         self.database = kwargs.get("database")
@@ -42,6 +44,8 @@ class Monitoring (object):
 
         self.tested_categories = set()
         self.tested_brands = set()
+
+        self.today_offers = {}
 
         self.redis_client.set(
             "stop_signal", 0
@@ -88,6 +92,41 @@ class Monitoring (object):
 
         return ready_to_run
 
+    async def product_verification (
+        self, bot_name: str, offer_name: str, category: str, price: float
+    ) -> tuple[bool, Product]:
+        # Verificações diarias pra economizar em querys do MongoDB
+        if category not in self.today_offers:
+            self.today_offers[category] = {}
+        if bot_name not in self.today_offers[category]:
+            self.today_offers[category][bot_name] = []
+
+        bot_offers = self.today_offers[category][bot_name]
+
+        # Get only relevant names from raw name
+        tags, adjectives = await self.vectorizer.extract_tags(offer_name, category)
+        if tags == []:
+            return None, None
+
+        product_obj = Product(
+            raw_name=offer_name, category=category, tags=tags, adjectives=adjectives,
+            price=price, history=[]
+        )
+        new_product = False
+
+        if product_obj not in bot_offers:
+            # timer.next("Find product")
+            new_product, product_dict = self.database.find_product(product_obj)
+
+            if new_product:
+                self.metrics_collector.handle_site_results(bot_name, "new_product")
+
+            # New product
+            product_obj = Product(**product_dict)
+            bot_offers.append(product_obj)
+
+        return new_product, product_obj
+
     async def verify_save_prices (self, results: list[base.BotRunner]):
         today = int(time.time())
 
@@ -100,37 +139,21 @@ class Monitoring (object):
             )
 
             for offer in bot_result.results:
-
                 bot_name = offer["bot"]
                 category = offer["category"]
+                price = offer["price"]
+                old_price = offer["old_price"]
+                name = offer["name"].replace("\n", " ")
 
-                timer = Timer()
                 try:
-                    name = offer["name"].replace("\n", " ")
-
-                    # Get only relevant names from raw name
-                    timer.next("Extract Tags")
-                    tags, adjectives = self.vectorizer.extract_tags(name, category)
-                    if tags == []:
-                        continue
-                    timer.next("Extract Tags")
-
-                    price = offer["price"]
-                    old_price = offer["old_price"]
-
-                    product_obj = Product(
-                        raw_name=name, category=category, tags=tags, adjectives=adjectives,
-                        price=price, history=[]
+                    new_product, product_obj = await self.product_verification(
+                        bot_name, name, category, price
                     )
 
-                    timer.next("Find product")
-                    new_product, product_dict = self.database.find_product(product_obj)
-                    if new_product:
-                        self.metrics_collector.handle_site_results(bot_name, "new_product")
-                    timer.next("Find product")
+                    if product_obj is None:
+                        continue
 
-                    # New product
-                    product_obj = Product(**product_dict)
+                    tags = product_obj.tags
 
                     if not isinstance(price, (float, int)) or not isinstance(old_price, (float, int)):
                         self.metrics_collector.handle_error("parse_price_to_float")
@@ -151,11 +174,9 @@ class Monitoring (object):
                         is_affiliate=is_affiliate, url=url, extras=extras
                     )
 
-                    timer.next("Verify or add price")
                     is_new_price, price_obj, price_index = self.database.verify_or_add_price(
                         tags, new_price, product_obj
                     )
-                    timer.next("Verify or add price")
 
                     avarage = price
                     if not new_product:
@@ -176,7 +197,6 @@ class Monitoring (object):
                         self.tested_categories.add(category)
                         self.tested_brands.add(bot_name)
 
-                    timer.next("Find wishes")
                     all_wishes = self.database.find_all_wishes(tags)
 
                     for wish in all_wishes:
@@ -204,7 +224,10 @@ class Monitoring (object):
                         for user_id in users_wish:
 
                             # Caso onde ja foi enviado aquela oferta para o usuario
-                            if user_id in price_obj.users_sent and price_obj.users_sent[user_id] == 1:
+                            if (
+                                user_id in price_obj.users_sent and
+                                price_obj.users_sent[user_id] == 1
+                            ):
                                 continue
 
                             user_price = users_wish[user_id]
@@ -230,43 +253,40 @@ class Monitoring (object):
                             )
                             self.metrics_collector.handle_user_response()
 
-                    timer.next("Find wishes")
-                    timer.finish()
-
                 except Exception:
                     self.metrics_collector.handle_site_results(bot_name, "error")
                     self.metrics_collector.handle_error("get_results")
                     logging.error(traceback.print_exc())
 
-    def verify_get_in_sents (self, new_price: Price | dict):
-        if type(new_price) is dict:
-            new_price = Price(**new_price)
-
-        return new_price in self.get
-
     async def continuous_verify_price (self):
         links_cursor = self.database.get_links()
 
         logging.warning("Starting requests...")
-        ready_pages = []
         for link_obj in links_cursor:
+            category_timer = Timer()
+            ready_pages = []
             try:
                 url_list = link_obj["links"]
                 category = link_obj["category"]
 
+                category_timer.next(f"{category} - Verify read pages")
                 # Get raw results from web scraping
-                ready_pages += self.verify_ready_pages(url_list, category)
-                if len(ready_pages) >= 4:
-                    break
+                ready_pages = self.verify_ready_pages(url_list, category)
+                category_timer.next(f"{category} - Verify read pages")
 
             except Exception as exc:
                 logging.error(exc)
 
-        scrapper = base.BotBase(ready_pages, True)
-        results = await scrapper.run()
-        logging.warning("Verified all urls!")
-        await self.verify_save_prices(results)
-        logging.warning("Parsed all products found")
-        logging.warning("Finished pipeline")
+            category_timer.next(f"{category} - Verify Urls")
+            scrapper = base.BotBase(ready_pages, True)
+            results = await scrapper.run()
+            category_timer.next(f"{category} - Verify Urls")
+            logging.warning("Verified all urls!")
+
+            category_timer.next(f"{category} - Verify prices")
+            await self.verify_save_prices(results)
+            logging.warning("Parsed all products found")
+            category_timer.next(f"{category} - Verify prices")
+            logging.warning("Finished pipeline")
 
         return True

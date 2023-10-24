@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import os
 
 import requests
 from redis import Redis
@@ -52,7 +53,7 @@ class TelegramBot ():
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
         self.application = Application.builder().token(
-            "6649989525:AAHgeYTN-x7jjZy2GHAxaCXBSwz-w6e_87c"
+            os.environ["TELEGRAM_TOKEN"]
         ).build()
         logging.warning("Ligando o troço")
 
@@ -311,7 +312,7 @@ class TelegramBot ():
             user_id = update.message.from_user["id"]
             user_name = update.message.from_user["first_name"]
             product = update.message.text
-            tag_list, adjectives = self.vectorizer.extract_tags(product, "")
+            tag_list, adjectives = await self.vectorizer.extract_tags(product, "")
 
             tag_mapping = {
                 ELETRONICS: "eletronics", CLOTHES: "clothes", HOUSE: "house",

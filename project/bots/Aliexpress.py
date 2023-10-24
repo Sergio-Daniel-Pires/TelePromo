@@ -1,6 +1,7 @@
 import asyncio
 from enum import Enum
 from typing import Any
+
 from playwright.async_api import Page
 
 try:
@@ -77,11 +78,11 @@ class Aliexpress (BotRunner):
 
             img = "https://" + product_obj["image"]["imgUrl"][2:]
 
+            shipping = "Consulte o frete!"
             for selling_point in product_obj.get("sellingPoints", []):
                 if "shipping" in selling_point["source"]:
                     shipping = selling_point["tagContent"]["tagText"]
-                else:
-                    shipping = "Consulte o frete!"
+                    break
 
             extras = { "shipping": shipping }
 

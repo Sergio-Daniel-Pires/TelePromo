@@ -21,7 +21,7 @@ class Database:
     def __init__ (self, metrics_client: MetricsCollector):
         self.metrics_client = metrics_client
         self.client = pymongo.MongoClient(
-            f"mongodb://{os.environ.get('MONGO_URL', 'localhost')}",
+            os.environ.get('MONGO_URL', 'mongodb://localhost'),
             os.environ.get("MONGO_PORT", 27017)
         )
         self.database = self.client["telepromo"]

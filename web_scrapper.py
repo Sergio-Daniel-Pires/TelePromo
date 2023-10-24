@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 import logging
 import os
 import time
@@ -10,7 +11,7 @@ from project.metrics_collector import MetricsCollector
 from project.monitor import Monitoring
 from project.vectorizers import Vectorizers
 
-logging.getLogger().setLevel(logging.WARNING)
+logging.getLogger().setLevel(logging.DEBUG)
 
 def main ():
     metrics = MetricsCollector(9091)
@@ -31,9 +32,11 @@ def main ():
     )
 
     # Start continuos verify prices
+    last_checked_day = datetime.date.today()
     while True:
         current_time = int(time.time())
         elapsed = current_time - monitor.last_execution_time
+        current_date = datetime.date.today()
 
         if elapsed < monitor.shortest_bot_time:
             logging.warning(
@@ -43,6 +46,10 @@ def main ():
             )
 
         else:
+            if current_date != last_checked_day:
+                monitor.today_offers = {}
+                last_checked_day = current_date
+
             asyncio.run(monitor.continuous_verify_price())
             monitor.last_execution_time = current_time
 

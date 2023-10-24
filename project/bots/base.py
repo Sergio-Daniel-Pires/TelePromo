@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Any
 
 from playwright.async_api import async_playwright
-from playwright.async_api._generated import Browser, Page, BrowserContext
+from playwright.async_api._generated import Browser, BrowserContext, Page
 
 
 class UserMessages(str, Enum):

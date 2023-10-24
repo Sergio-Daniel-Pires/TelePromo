@@ -1,5 +1,6 @@
 import asyncio
 import logging
+
 from playwright.async_api import Page
 
 try:
@@ -77,7 +78,6 @@ class Pichau (base.BotRunner):
             else:
                 img = None
 
-            logging.debug(__class__, old_price, price)
             results.append(
                 self.new_product(name, price, url, details, old_price, img)
             )

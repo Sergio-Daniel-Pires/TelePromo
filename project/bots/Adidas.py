@@ -1,4 +1,5 @@
 import logging
+
 from playwright.async_api import Page
 
 try:
@@ -38,7 +39,6 @@ class Adidas (BotRunner):
 
             img = await (await product.query_selector("img")).get_attribute("src")
 
-            logging.debug(__class__, old_price, price)
             results.append(self.new_product(name, price, url, details, old_price, img))
 
         return results

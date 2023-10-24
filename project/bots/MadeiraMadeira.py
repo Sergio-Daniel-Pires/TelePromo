@@ -1,4 +1,5 @@
 import logging
+
 from playwright.async_api import Page
 
 try:
@@ -47,7 +48,6 @@ class MadeiraMadeira (BotRunner):
                 await product_obj.query_selector("img.main-img")
             ).get_attribute("src")
 
-            logging.debug(__class__, old_price, price)
             results.append(
                 self.new_product(name, price, url, details, old_price, img)
             )

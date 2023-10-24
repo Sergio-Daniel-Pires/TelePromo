@@ -3,9 +3,9 @@ import re
 import traceback
 from enum import Enum
 from typing import Any
-from playwright.async_api import Page
 
 import requests
+from playwright.async_api import Page
 
 try:
     from project.bots.base import BotRunner
@@ -89,7 +89,7 @@ class Kabum (BotRunner):
             else route.continue_()
         )
 
-        await page.goto(self.link)
+        await page.goto(self.link, timeout=30000)
 
         await page.wait_for_selector("#bannerPrincipal")
 
@@ -138,7 +138,6 @@ class Kabum (BotRunner):
                     prime_price if prime_price != 0 else self.format_money(price)
                 )
 
-                logging.debug(__class__, old_price, price)
                 results.append(
                     self.new_product(name, price, url, details, old_price, img, extras)
                 )

@@ -117,10 +117,11 @@ class Product:
         return sum(values)/len(values)
 
     def __eq__(self, __value: object) -> bool:
-        if self.tags != __value.tags:
-            return False
+        if self.tags == __value.tags:
+            return True
 
-        return True
+        else:
+            False
 
 class FormatPromoMessage:
     """

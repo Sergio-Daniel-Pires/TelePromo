@@ -1,21 +1,15 @@
 version: '3'
 
 services:
-  mongodb:
-    container_name: md01
-    image: mongo:4.4.15
-    ports:
-      - '27017:27017'
-    volumes:
-      - ./db:/data/db
-    networks:
-      - network
-    deploy:
-      resources:
-        limits:
-          memory: 2gb
-        reservations:
-          memory: 1gb
+  # mongodb:
+  #   container_name: md01
+  #   image: mongo:4.4.15
+  #   ports:
+  #     - '27017:27017'
+  #   volumes:
+  #     - ./db:/data/db
+  #   networks:
+  #     - network
 
   redis:
     image: redis
@@ -63,7 +57,7 @@ services:
     depends_on: [mongodb, prometheus, redis]
     container_name: web-scrapper
     environment:
-      MONGO_URL: "mongodb"
+      MONGO_URL: "mongodb+srv://gaosan:Ws0IX3kripgqWKDW@telepromo.sgqmifa.mongodb.net/"
       REDIS_URL: "redis"
     build:
       context: .
@@ -83,8 +77,9 @@ services:
     depends_on: [mongodb, prometheus, redis, web-scrapper]
     container_name: chat-bot
     environment:
-      MONGO_URL: "mongodb"
+      MONGO_URL: "mongodb+srv://gaosan:Ws0IX3kripgqWKDW@telepromo.sgqmifa.mongodb.net/"
       REDIS_URL: "redis"
+      TELEGRAM_TOKEN: "6163736593:AAFRImnBRLZ3Ra7TRuECvoBT1juJQmNxUv8"
     build:
       context: .
       dockerfile: Dockerfile

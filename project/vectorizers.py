@@ -1,7 +1,8 @@
 from enum import Enum
+
 import spacy
 
-from project.utils import normalize_str, STOP_WORDS
+from project.utils import STOP_WORDS, normalize_str
 
 
 class Vectorizers (object):
@@ -42,7 +43,7 @@ class Vectorizers (object):
         """
         return self.funcs[category]
 
-    def remove_stop_words (self, normalized_product_name: str) -> tuple[list[str], list[str]]:
+    async def remove_stop_words (self, normalized_product_name: str) -> tuple[list[str], list[str]]:
         doc = self.trained_model(normalized_product_name)
 
         tags = []
@@ -63,11 +64,10 @@ class Vectorizers (object):
 
         return tags, adjectives
 
-
-    def extract_tags (self, raw_product_name: str, category: str) -> tuple[list[str], list[str]]:
+    async def extract_tags (self, raw_product_name: str, category: str) -> tuple[list[str], list[str]]:
         # Cutted function because vectorizer is not good (not enough data)
 
         normalized_product_name = normalize_str(raw_product_name)
-        product_tags, adjectives = self.remove_stop_words(normalized_product_name)
+        product_tags, adjectives = await self.remove_stop_words(normalized_product_name)
 
         return product_tags, adjectives
