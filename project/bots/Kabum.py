@@ -105,7 +105,7 @@ class Kabum (BotRunner):
                 "&pagina=1&limite=1000&marcas=&ordem=&valor_min=&valor_max=&estrelas=&desconto_minimo="
                 "&desconto_maximo=&dep=&sec=&vendedor_codigo=&string=&app=1"
             )
-            print(api_link)
+            # print(api_link)
 
             response = requests.get(api_link).json()
 

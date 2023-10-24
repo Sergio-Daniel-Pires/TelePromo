@@ -313,7 +313,6 @@ class TelegramBot ():
             user_name = update.message.from_user["first_name"]
             product = update.message.text
             tag_list, adjectives = await self.vectorizer.extract_tags(product, "")
-
             tag_mapping = {
                 ELETRONICS: "eletronics", CLOTHES: "clothes", HOUSE: "house",
                 PETS: "pets", BOOKS: "books", OTHERS: "others"
