@@ -1,16 +1,6 @@
 version: '3'
 
 services:
-  # mongodb:
-  #   container_name: md01
-  #   image: mongo:4.4.15
-  #   ports:
-  #     - '27017:27017'
-  #   volumes:
-  #     - ./db:/data/db
-  #   networks:
-  #     - network
-
   redis:
     image: redis
     container_name: tele-redis
@@ -54,7 +44,7 @@ services:
       - network
 
   web-scrapper:
-    depends_on: [mongodb, prometheus, redis]
+    depends_on: [prometheus, redis]
     container_name: web-scrapper
     environment:
       MONGO_URL: "mongodb+srv://gaosan:Ws0IX3kripgqWKDW@telepromo.sgqmifa.mongodb.net/"
@@ -74,7 +64,7 @@ services:
     command: ['python3', 'web_scrapper.py']
 
   chat-bot:
-    depends_on: [mongodb, prometheus, redis, web-scrapper]
+    depends_on: [prometheus, redis, web-scrapper]
     container_name: chat-bot
     environment:
       MONGO_URL: "mongodb+srv://gaosan:Ws0IX3kripgqWKDW@telepromo.sgqmifa.mongodb.net/"
