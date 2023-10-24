@@ -51,12 +51,12 @@ class BotRunner(ABC):
 
     def __init__(
         self, link: str, index: int, category: str, messages: Enum = UserMessages,
-        metadata: dict[str, Any] = {}
+        metadata: dict[str, Any] = None
     ) -> None:
         self.link = link
         self.index = index
         self.category = category
-        self.metadata = metadata
+        self.metadata = metadata if metadata is not None else {}
         self.messages = messages
 
         self.brand = self.__class__.__name__

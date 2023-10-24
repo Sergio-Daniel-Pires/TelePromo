@@ -198,9 +198,9 @@ class Database:
 
     def insert_new_user_wish (
         self, user_id: str, user_name: str, tag_list: list[str],
-        product: str, category: str, max_price: int = 0, adjectives: list[str] = []
+        product: str, category: str, max_price: int = 0, adjectives: list[str] = None
     ) -> tuple[bool, str]:
-
+        adjectives = adjectives if adjectives is not None else []
         _, user = self.find_or_create_user(user_id, user_name)
         user_wish = user.get("wish_list")
         max_wishes = user.get("max_wishes", 10)
@@ -244,14 +244,12 @@ class Database:
     def new_wish (self, **kwargs):
         tags = kwargs.get("tags")
         user_id = kwargs.get("user")
-        adjectives = kwargs.get("adjectives", [])
 
         wish_obj = self.database["wishes"].find_one_and_update(
             { "tags": tags },
             {
                 "$setOnInsert": Wished(
-                                    tags=tags,
-                                    adjectives=adjectives
+                                    tags=tags
                                 ).__dict__
             },
             upsert=True,
@@ -289,7 +287,7 @@ class Database:
             }
         )
 
-    def find_all_wishes (self, tags: list):
+    def find_all_wishes (self, tags: list[str]) -> list[Wished]:
         return self.database["wishes"].find(
             { "tags": { "$in": tags } }
         )
@@ -317,7 +315,7 @@ class Database:
         )
 
     def verify_or_add_price (
-        self, tags: list[str], new_price: dict | Price, product_obj: Product
+        self, tags: list[str], new_price: Price, product_obj: Product
     ) -> tuple[bool, Price, int]:
         history = product_obj.get_history()
         is_new_price = new_price not in history

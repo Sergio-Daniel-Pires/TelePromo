@@ -12,6 +12,7 @@ class User:
     """
     _id: str
     name: str
+    max_wishes: int
     wish_list: dict[str, str]
     premium: bool
 
@@ -19,6 +20,7 @@ class User:
         self._id = user_id
         self.name = user_name
         self.wish_list = kwargs.get("wish_list", [])
+        self.max_wishes = kwargs.get("max_wishes", 10)
         self.premium = kwargs.get("premium", False)
 
 class Wished:
@@ -27,18 +29,14 @@ class Wished:
     """
     _id: bson.ObjectId
     tags: list[str]
-    adjectives: list[str]
     users: dict[int: float | int]
-    max_wishes: int
     num_wishs: int
 
     def __init__ (self, **kwargs) -> None:
         self._id = bson.ObjectId()
         self.tags = kwargs.get("tags")
-        self.tags = kwargs.get("adjectives")
         self.users = kwargs.get("users", {})
         self.num_wishs = 0
-        self.max_wishes = 10
 
 class Price:
     _id: bson.ObjectId()
@@ -53,7 +51,7 @@ class Price:
 
     def __init__ (
         self, date: int, price: float, old_price: float, is_promo: bool, is_affiliate: bool,
-        url: str, extras: dict[str, Any] = {}, users_sent: dict[int, int] = {},
+        url: str, extras: dict[str, Any] = None, users_sent: dict[int, int] = None,
         _id: bson.ObjectId = None
     ) -> None:
         if not isinstance(_id, bson.ObjectId):
@@ -66,9 +64,9 @@ class Price:
         self.is_promo = is_promo
         self.is_affiliate = is_affiliate
         self.url = url
-        self.users_sent = users_sent
+        self.users_sent = users_sent if users_sent is not None else {}
 
-        self.extras = extras
+        self.extras = extras if extras is not None else {}
 
     def __eq__ (self, __value: object) -> bool:
         if (self.date - __value.date) < SECONDS_IN_DAY * 3:
@@ -92,7 +90,7 @@ class Product:
 
     def __init__ (
         self, raw_name: str, tags: list, adjectives: list, category: str, price: float,
-        history: list[Price] = [], _id: bson.ObjectId = None
+        history: list[Price] = None, _id: bson.ObjectId = None
     ) -> None:
         if not isinstance(_id, bson.ObjectId):
             _id = bson.ObjectId()
@@ -103,14 +101,25 @@ class Product:
         self.adjectives = adjectives
         self.category = category
         self.price = price
-        self.history = history
+        self.history = history if history is not None else []
 
     def get_history (self) -> list[Price]:
         # Removed from list comprehension, 'extras' fault
-        return [Price(**items) for items in self.history]
+        history = []
+        for raw_item in self.history:
+            if isinstance(raw_item, Price):
+                item = raw_item
+            elif isinstance(raw_item, dict):
+                item = Price(**raw_item)
+            else:
+                raise TypeError(f"{raw_item} is not a valid Price")
+
+            history.append(item)
+
+        return history
 
     def avarage (self) -> float:
-        values = [float(value.price) for value in self.get_history()]
+        values = [ float(value.price) for value in self.get_history() ]
         if len(values) == 0:
             return 0
 
