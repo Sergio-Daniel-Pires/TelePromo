@@ -130,6 +130,7 @@ class Monitoring (object):
     async def verify_save_prices (self, results: list[base.BotRunner]):
         today = int(time.time())
 
+
         # last_bot = None
         for bot_result in results:
             # update bot results
@@ -137,6 +138,7 @@ class Monitoring (object):
             self.database.update_link(
                 bot_result.category, bot_result.index, is_ok, bot_result.metadata
             )
+            logging.warning(f"Starting {bot_result.brand}#{bot_result.index}")
 
             for offer in bot_result.results:
                 bot_name = offer["bot"]
@@ -258,35 +260,27 @@ class Monitoring (object):
                     self.metrics_collector.handle_error("get_results")
                     logging.error(traceback.print_exc())
 
+            logging.warning(f"Finished {bot_result.brand}#{bot_result.index}")
+
     async def continuous_verify_price (self):
         links_cursor = self.database.get_links()
 
-        logging.warning("Starting requests...")
+        logging.warning("Verifying bots that need to run...")
+        ready_pages = []
+
         for link_obj in links_cursor:
-            category_timer = Timer()
-            ready_pages = []
-            try:
-                url_list = link_obj["links"]
-                category = link_obj["category"]
 
-                category_timer.next(f"{category} - Verify read pages")
-                # Get raw results from web scraping
-                ready_pages = self.verify_ready_pages(url_list, category)
-                category_timer.next(f"{category} - Verify read pages")
+            url_list = link_obj["links"]
+            category = link_obj["category"]
 
-            except Exception as exc:
-                logging.error(exc)
+            # Get raw results from web scraping
+            ready_pages += self.verify_ready_pages(url_list, category)
+        logging.warning("Finished bots verification...")
 
-            category_timer.next(f"{category} - Verify Urls")
-            scrapper = base.BotBase(ready_pages, True)
-            results = await scrapper.run()
-            category_timer.next(f"{category} - Verify Urls")
-            logging.warning("Verified all urls!")
+        logging.warning("Started...")
+        await base.BotBase(ready_pages, True).run(self.verify_save_prices)
 
-            category_timer.next(f"{category} - Verify prices")
-            await self.verify_save_prices(results)
-            logging.warning("Parsed all products found")
-            category_timer.next(f"{category} - Verify prices")
-            logging.warning("Finished pipeline")
+        logging.warning("Parsed all products found")
+        logging.warning("Finished pipeline")
 
         return True

@@ -4,7 +4,7 @@ import re
 import traceback
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any
+from typing import Any, Callable
 
 from playwright.async_api import async_playwright
 from playwright.async_api._generated import Browser, BrowserContext, Page
@@ -166,9 +166,8 @@ class BotBase:
         self.waiting_pages = waiting_pages
         self.headless = headless
 
-    async def run (self) -> list[BotRunner]:
+    async def run (self, save_prices: Callable) -> list[BotRunner]:
         semaphore = asyncio.Semaphore(self.limit_pages)
-        results = []
 
         async with async_playwright() as playwright:
             self.browser = await playwright.chromium.launch(headless=self.headless)
@@ -182,11 +181,9 @@ class BotBase:
 
             for future_task in asyncio.as_completed(tasks):
                 bot_result = await future_task
-                results.append(bot_result)
+                await save_prices([bot_result])
 
             await self.browser.close()
-
-        return results
 
     async def run_tab (
         self, tab: BotRunner, sem: asyncio.Semaphore
