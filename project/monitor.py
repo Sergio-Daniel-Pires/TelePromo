@@ -9,10 +9,10 @@ from redis import Redis
 from project.bots import base
 from project.database import Database
 from project.metrics_collector import MetricsCollector
-from project.models import FormatPromoMessage, Price, Product
-from project.timer import Timer
+from project.models import FormatPromoMessage, Price, Product, Wished
 from project.utils import name_to_object
 from project.vectorizers import Vectorizers
+from typing import Any
 
 
 class Monitoring (object):
@@ -30,7 +30,7 @@ class Monitoring (object):
     tested_categories: set  # Only to try all chats
     tested_brands: set  # Only to try all chats
 
-    today_offers: dict
+    today_offers: dict[str, dict[str, list[Product]]]
 
     def __init__ (self, **kwargs):
         self.retry = kwargs.get("retrys")
@@ -94,7 +94,15 @@ class Monitoring (object):
 
     async def product_verification (
         self, bot_name: str, offer_name: str, category: str, price: float
-    ) -> tuple[bool, Product]:
+    ) -> tuple[bool, Product, int]:
+        """
+        Verify if its is a new price, product as object and index in fast acess dict
+
+        :param bot_name: Bot name
+        :param offer_name: Offer name in site
+        :param category: like eletronics, clothes etc
+        :param price: float price
+        """
         # Verificações diarias pra economizar em querys do MongoDB
         if category not in self.today_offers:
             self.today_offers[category] = {}
@@ -124,12 +132,80 @@ class Monitoring (object):
             # New product
             product_obj = Product(**product_dict)
             bot_offers.append(product_obj)
+            index = len(bot_offers) - 1
 
-        return new_product, product_obj
+        else:
+            index = bot_offers.index(product_obj)
+            product_obj = bot_offers[index]
+
+        return new_product, product_obj, index
+
+    async def handle_users_wishes (
+        self, all_wishes: list[Wished], product_obj: Product, product_idx: int, price_obj: Price,
+        price_idx: int, offer: dict[str, Any], avg: float
+    ):
+        bot_name = offer["bot"]
+        category = offer["category"]
+
+        for wish in all_wishes:
+            users_wish = wish["users"]
+
+            if len(users_wish) == 0:
+                continue
+
+            list_user_tags = wish["tags"]
+            set_user_tags = set(list_user_tags)
+
+            needed = 0.75                   # Need at least half of tags to send
+            if len(list_user_tags) == 2:    # Special case, only two tags
+                needed = 1.0
+
+            tam_user_tags = len(list_user_tags)
+
+            qtd_equals = len(set_user_tags.intersection(product_obj.tags))
+
+            prct_equal = qtd_equals / tam_user_tags
+
+            if prct_equal < needed:
+                continue
+
+            for user_id in users_wish:
+
+                # Caso onde ja foi enviado aquela oferta para o usuario
+                if (
+                    user_id in price_obj.users_sent and
+                    price_obj.users_sent[user_id] == 1
+                ):
+                    continue
+
+                user_price = users_wish[user_id]
+
+                if product_obj.price > user_price * 1.03 and user_price != 0:
+                    self.database.add_new_user_in_price_sent(
+                        product_obj._id, price_idx, user_id, 0
+                    )
+                    self.today_offers[category][bot_name][product_idx].history[price_idx].users_sent[user_id] = 0
+                    continue
+
+                beautiful_msg = FormatPromoMessage.parse_msg(
+                    offer, avg, prct_equal, bot_name
+                )
+                # Add to background queue
+                self.redis_client.lpush(
+                    "msgs_to_send", json.dumps(
+                        { "chat_id": user_id, "message": beautiful_msg }
+                    )
+                )
+
+                self.database.add_new_user_in_price_sent(
+                    product_obj._id, price_idx, user_id, 1
+                )
+                # Faster acess dict
+                self.today_offers[category][bot_name][product_idx].history[price_idx].users_sent[user_id] = 1
+                self.metrics_collector.handle_user_response()
 
     async def verify_save_prices (self, results: list[base.BotRunner]):
         today = int(time.time())
-
 
         # last_bot = None
         for bot_result in results:
@@ -148,9 +224,10 @@ class Monitoring (object):
                 name = offer["name"].replace("\n", " ")
 
                 try:
-                    new_product, product_obj = await self.product_verification(
+                    product_verf_result = await self.product_verification(
                         bot_name, name, category, price
                     )
+                    is_new_product, product_obj, product_index = product_verf_result
 
                     if product_obj is None:
                         continue
@@ -163,29 +240,26 @@ class Monitoring (object):
                         logging.error(traceback.format_exc())
 
                     is_promo = offer.get("promo", None)
-
-                    if is_promo is None and (old_price < price):
+                    if is_promo is None and (old_price > price):
                         is_promo = True
 
-                    is_affiliate = offer.get("is_affiliate", None)
-                    url = offer.get("url", "")
-                    extras = offer.get("extras", {})
-
                     new_price = Price(
-                        date=today, price=price, old_price=old_price, is_promo=is_promo,
-                        is_affiliate=is_affiliate, url=url, extras=extras
+                        date=today, price=price, old_price=old_price,
+                        is_promo=is_promo, is_affiliate=offer.get("is_affiliate", None),
+                        url=offer["url"], extras=offer.get("extras", {})
                     )
 
                     is_new_price, price_obj, price_index = self.database.verify_or_add_price(
                         tags, new_price, product_obj
                     )
 
-                    avarage = price
-                    if not new_product:
-                        avarage = product_obj.avarage()
-
                     if is_new_price:
+                        self.today_offers[category][bot_name][product_index].history.append(price_obj)
                         self.metrics_collector.handle_site_results(bot_name, "new_price")
+
+                    avarage = price
+                    if not is_new_product:
+                        avarage = product_obj.avarage()
 
                     # Just to try msg are sent
                     if category not in self.tested_categories or bot_name not in self.tested_brands:
@@ -201,59 +275,10 @@ class Monitoring (object):
 
                     all_wishes = self.database.find_all_wishes(tags)
 
-                    for wish in all_wishes:
-                        users_wish = wish["users"]
-
-                        if len(users_wish) == 0:
-                            continue
-
-                        list_user_tags = wish["tags"]
-                        set_user_tags = set(list_user_tags)
-
-                        needed = 0.75                   # Need at least half of tags to send
-                        if len(list_user_tags) == 2:    # Special case, only two tags
-                            needed = 1.0
-
-                        tam_user_tags = len(list_user_tags)
-
-                        qtd_equals = len(set_user_tags.intersection(tags))
-
-                        prct_equal = qtd_equals / tam_user_tags
-
-                        if prct_equal < needed:
-                            continue
-
-                        for user_id in users_wish:
-
-                            # Caso onde ja foi enviado aquela oferta para o usuario
-                            if (
-                                user_id in price_obj.users_sent and
-                                price_obj.users_sent[user_id] == 1
-                            ):
-                                continue
-
-                            user_price = users_wish[user_id]
-
-                            if price > user_price * 1.03 and user_price != 0:
-                                self.database.add_new_user_in_price_sent(
-                                    product_obj._id, price_index, user_id, 0
-                                )
-                                continue
-
-                            beautiful_msg = FormatPromoMessage.parse_msg(
-                                offer, avarage, prct_equal, bot_name
-                            )
-                            # Add to background queue
-                            self.redis_client.lpush(
-                                "msgs_to_send", json.dumps(
-                                    { "chat_id": user_id, "message": beautiful_msg }
-                                )
-                            )
-
-                            self.database.add_new_user_in_price_sent(
-                                product_obj._id, price_index, user_id, 1
-                            )
-                            self.metrics_collector.handle_user_response()
+                    await self.handle_users_wishes(
+                        all_wishes, product_obj, product_index, price_obj, price_index,
+                        offer, avarage
+                    )
 
                 except Exception:
                     self.metrics_collector.handle_site_results(bot_name, "error")
