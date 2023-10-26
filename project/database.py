@@ -111,6 +111,10 @@ class Database:
         return "\n".join(ok + error + no_link + status_desc)
 
     def find_or_insert_product (self, product: Product) -> tuple[bool, dict]:
+        if product.category in ( "eletronics", "books" ) and len(product.adjectives) != 0:
+            product.tags = product.tags + product.adjectives
+            product.adjectives = []
+
         dict_product = self.database["products"].find_one(
             { "tags": { "$all": product.tags } }
         )
