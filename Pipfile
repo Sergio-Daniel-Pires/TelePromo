@@ -15,7 +15,6 @@ apscheduler = "==3.6.3"
 python-telegram-bot = "*"
 spacy = "*"
 redis = "*"
-certifi = "*"
 
 [dev-packages]
 ipykernel = "*"

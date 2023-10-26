@@ -300,10 +300,6 @@ class Monitoring (object):
             url_list = link_obj["links"]
             category = link_obj["category"]
 
-            print(category)
-            if category != "books":
-                continue
-
             # Get raw results from web scraping
             ready_pages += self.verify_ready_pages(url_list, category)
         logging.warning("Finished bots verification...")
