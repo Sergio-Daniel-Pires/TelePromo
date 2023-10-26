@@ -59,6 +59,7 @@ if __name__ == "__main__":
         link="https://www.terabyteshop.com.br/promocoes", index=0,
         category="eletronics"
     ) ]
-    scrapper = base.BotBase(ready_pages, True)
-    results = asyncio.run(scrapper.run())
+    results = asyncio.run(base.BotBase(ready_pages, True).run())
+
+
     print(results)

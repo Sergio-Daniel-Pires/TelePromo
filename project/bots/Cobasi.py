@@ -11,9 +11,9 @@ from playwright.async_api import Page
 from project.bots.base import UserMessages
 
 try:
-    from project.bots.base import BotRunner
+    from project.bots import base
 except Exception:
-    from base import BotRunner
+    import base
 
 class CobasiMessages(str, Enum):
     ALL_TAGS_MATCHED = (
@@ -58,14 +58,14 @@ class CobasiMessages(str, Enum):
         "\n"
     )
 
-class Cobasi (BotRunner):
+class Cobasi (base.BotRunner):
     messages: Enum = CobasiMessages
 
     def __init__(
         self, link: str, index: int, category: str, messages: Enum = ...,
-        metadata: dict[str, Any] = {}
+        metadata: dict[str, Any] = {}, api_link: str = None
     ) -> None:
-        super().__init__(link, index, category, messages, metadata)
+        super().__init__(link, index, category, messages, metadata, api_link)
         self.messages = CobasiMessages
 
     async def get_prices (self, page: Page):
@@ -136,8 +136,11 @@ class Cobasi (BotRunner):
 
 
 if __name__ == "__main__":
-    bot = Cobasi()
-    results = asyncio.run(
-        bot.run(headless=True, link="https://www.cobasi.com.br/promocoes")
-    )
+    ready_pages = [ Cobasi(
+        link="https://www.cobasi.com.br/promocoes", index=0,
+        category="eletronics"
+    ) ]
+    results = asyncio.run(base.BotBase(ready_pages, True).run())
+
+
     print(results)

@@ -5,11 +5,11 @@ from typing import Any
 from playwright.async_api import Page
 
 try:
+    from project.bots import base
     from project.bots.Aliexpress import InternationalMessages
-    from project.bots.base import BotRunner
 
 except Exception:
-    from base import BotRunner
+    import base
     from Aliexpress import InternationalMessages
 
 import json
@@ -19,14 +19,14 @@ def build_url (url_name: str, id: int, cat_id: int):
     url_name = url_name.replace(" ", "-")
     return f"https://m.shein.com/br/{url_name}-p-{id}-cat-{cat_id}.html"
 
-class Shein (BotRunner):
+class Shein (base.BotRunner):
     messages: Enum = InternationalMessages
 
     def __init__(
         self, link: str, index: int, category: str, messages: Enum = ...,
-        metadata: dict[str, Any] = {}
+        metadata: dict[str, Any] = {}, api_link: str = None
     ) -> None:
-        super().__init__(link, index, category, messages, metadata)
+        super().__init__(link, index, category, messages, metadata, api_link)
         self.messages = InternationalMessages
 
     # Corrigir prices
@@ -81,11 +81,11 @@ class Shein (BotRunner):
 
 
 if __name__ == "__main__":
-    bot = Shein()
-    results = asyncio.run(
-        bot.run(
-            headless=True,
-            link=("https://m.shein.com/br/new/WHATS-NEW-sc-00255950.html")
-        )
-    )
+    ready_pages = [ Shein(
+        link="https://m.shein.com/br/new/WHATS-NEW-sc-00255950.html", index=0,
+        category="clothes"
+    ) ]
+    results = asyncio.run(base.BotBase(ready_pages, True).run())
+
+
     print(results)

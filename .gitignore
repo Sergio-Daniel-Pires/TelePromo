@@ -1,6 +1,8 @@
 prom-amd64/*
 
 *.jsonc
+*.json
+*.html
 *.pyc
 ___pycache__
 *.tlp

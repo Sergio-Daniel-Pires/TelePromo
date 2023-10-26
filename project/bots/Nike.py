@@ -1,56 +1,50 @@
+import asyncio
+import json
+
 from playwright.async_api import Page
 
 try:
-    from project.bots.base import BotRunner
+    from project.bots import base
 except Exception:
-    from base import BotRunner
+    import base
 
-class Nike (BotRunner):
+class Nike (base.BotRunner):
     # Funcionando
     async def get_prices (self, page: Page):
         results = []
 
-        await page.route("**/*", lambda route: route.abort()
-            if route.request.resource_type == "image"
-            else route.continue_()
-        )
-
         await page.goto(self.link)
 
-        await page.wait_for_selector("div.bPRNCw")
+        raw_json = await (await page.query_selector("pre")).inner_text()
+        loaded_json = json.loads(raw_json)
+        queries = loaded_json["pageProps"]["dehydratedState"]["queries"]
 
-        products = await page.query_selector_all("div.bPRNCw")
-        for product in products:
-            name = await (await product.query_selector("div > p:nth-child(1)")).inner_text()
-            details = name
+        for query in queries:
+            pages = query["state"]["data"]["pages"]
 
-            prices = await product.query_selector_all("div.jTWwgZ > p")
-            if len(prices) == 0:
-                continue
+            for page in pages:
+                products = page["products"]
 
-            price = await prices[0].inner_text()
-            old_price = price
+                for product in products:
+                    if product["status"] != "available":
+                        continue
 
-            if len(prices) > 1:
-                old_price = await prices[1].inner_text()
+                    name = product["name"]
+                    details = name
+                    pid = product["id"]
+                    img = f"https://imgnike-a.akamaihd.net/480x480/{pid}.jpg"
+                    price = product["price"]
+                    old_price = product["oldPrice"]
+                    url = "https://www.nike.com.br" + product["url"]
 
-            url = await (
-                await product.query_selector("a")
-            ).get_attribute("href")
-
-            img = await (await product.query_selector("img")).get_attribute("src")
-            if "image/gif;base64," in img:
-                img = None
-
-            results.append(self.new_product(name, price, url, details, old_price, img))
+                    results.append(self.new_product(name, price, url, details, old_price, img))
 
         return results
 
-
 if __name__ == "__main__":
-    bot = Nike()
-    import asyncio
-    results = asyncio.run(
-        bot.run(headless=True, link="https://www.nike.com.br/nav/ofertas/emoferta")
-    )
+    ready_pages = [ Nike(
+        link="https://www.nike.com.br/_next/data/v10-287-1/nav/ofertas/emoferta.json", index=0,
+        category="clothes"
+    ) ]
+    results = asyncio.run(base.BotBase(ready_pages, False).run())
     print(results)

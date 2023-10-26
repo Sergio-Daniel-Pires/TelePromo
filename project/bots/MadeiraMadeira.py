@@ -1,14 +1,14 @@
-import logging
+import asyncio
 
 from playwright.async_api import Page
 
 try:
-    from project.bots.base import BotRunner
+    from project.bots import base
 except Exception:
-    from base import BotRunner
+    import base
 
 
-class MadeiraMadeira (BotRunner):
+class MadeiraMadeira (base.BotRunner):
     """
     Erros:
     img nao funciona
@@ -56,11 +56,11 @@ class MadeiraMadeira (BotRunner):
 
 
 if __name__ == "__main__":
-    bot = MadeiraMadeira()
-    import asyncio
-    results = asyncio.run(
-        bot.run(
-            headless=True, link="https://www.madeiramadeira.com.br/ofertas-do-dia"
-        )
-    )
+    ready_pages = [ MadeiraMadeira(
+        link="https://www.madeiramadeira.com.br/ofertas-do-dia", index=0,
+        category="house"
+    ) ]
+    results = asyncio.run(base.BotBase(ready_pages, True).run())
+
+
     print(results)

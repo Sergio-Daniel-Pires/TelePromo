@@ -14,25 +14,29 @@ class Link:
     repeat: int = 0
     last: int = None  # timestamp
     status: Literal["NEW", "OK", "ERROR"] = "NEW"
+    api_link: str = None
 
     def __post_init__ (self):
         self.repeat = self.base_repeat
         self.last = int(time.time())
 
-
 LINKS = [
     {
-        "category": "diversificado",
+        "category": "diversified",
         "links": [
             Link("MagaLu")
         ]
     },
     {
-        "category": "eletronicos",
+        "category": "eletronics",
         "links": [
-            Link("Kabum", "https://www.kabum.com.br", 900),
+            Link(
+                "Kabum", "https://www.kabum.com.br", 900, api_link="API"
+            ),
             Link("Terabyte", "https://www.terabyteshop.com.br/promocoes", 900),
-            Link("Pichau", "https://www.pichau.com.br", 900),
+            Link(
+                "Pichau", "https://www.pichau.com.br", 900,
+                 api_link="https://www.pichau.com.br/api/pichau?query={}"),
 
             # Aliexpress
             Link("Aliexpress", "https://pt.aliexpress.com/category/201000054/cellphones-telecommunications.html", 900),
@@ -46,12 +50,17 @@ LINKS = [
         ]
     },
     {
-        "category": "roupas",
+        "category": "clothes",
         "links": [
             Link("Centauro"),
             Link("Dafiti"),
-            Link("Nike", "https://www.nike.com.br/nav/ofertas/emoferta", 1800),
-            Link("Adidas", "https://www.adidas.com.br/flash_sale", 1800),
+            Link(
+                "Nike", "https://www.nike.com.br/_next/data/v10-287-1/nav/ofertas/emoferta.json",
+                1800
+            ),
+            Link(
+                "Adidas", "https://www.adidas.com.br/api/plp/content-engine?query=flash_sale", 1800
+            ),
 
             # Aliexpress
             Link("Aliexpress", "https://pt.aliexpress.com/category/201001900/women-clothing.html", 900),
@@ -81,7 +90,7 @@ LINKS = [
         ]
     },
     {
-        "category": "casa/domestico",
+        "category": "house",
         "links": [
             Link("MadeiraMadeira", "https://www.madeiramadeira.com.br/ofertas-do-dia", 1800),
             Link("Aliexpress", "https://pt.aliexpress.com/category/201000008/home-garden.html", 900),
@@ -100,9 +109,12 @@ LINKS = [
         ]
     },
     {
-        "category": "livros",
+        "category": "books",
         "links": [
-            Link("EstanteVirtual")
+            Link(
+                "EstanteVirtual", None, 1800,
+                api_link="https://lambda.estantevirtual.com.br/busca/exemplares/{}"
+            )
         ]
     }
 ]

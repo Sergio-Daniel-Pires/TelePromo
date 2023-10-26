@@ -3,6 +3,7 @@ import json
 import logging
 import time
 import traceback
+from typing import Any
 
 from redis import Redis
 
@@ -12,7 +13,6 @@ from project.metrics_collector import MetricsCollector
 from project.models import FormatPromoMessage, Price, Product, Wished
 from project.utils import name_to_object
 from project.vectorizers import Vectorizers
-from typing import Any
 
 
 class Monitoring (object):
@@ -58,12 +58,13 @@ class Monitoring (object):
         ready_to_run = []
         time_now = int(time.time())
 
-        for idx, url in enumerate(urls):
-            link = url["link"]
-            bot_name = url["name"]
-            status = url["status"]
-            last = url.get("last", None)
-            repeat = url.get("repeat", None)
+        for idx, page_obj in enumerate(urls):
+            link = page_obj["link"]
+            api_link = page_obj.get("api_link", None)
+            bot_name = page_obj["name"]
+            status = page_obj["status"]
+            last = page_obj.get("last", None)
+            repeat = page_obj.get("repeat", None)
 
             if link == "":
                 logging.debug(f"{bot_name} não tem link, skipando...")
@@ -81,7 +82,8 @@ class Monitoring (object):
 
             try:
                 bot_instance = name_to_object[bot_name](
-                    link=link, index=idx, category=category, metadata=url
+                    link=link, index=idx, category=category, metadata=page_obj,
+                    api_link=api_link
                 )
                 ready_to_run.append(bot_instance)
 
@@ -114,7 +116,7 @@ class Monitoring (object):
         # Get only relevant names from raw name
         tags, adjectives = await self.vectorizer.extract_tags(offer_name, category)
         if tags == []:
-            return None, None
+            return None, None, None
 
         product_obj = Product(
             raw_name=offer_name, category=category, tags=tags, adjectives=adjectives,
@@ -124,7 +126,7 @@ class Monitoring (object):
 
         if product_obj not in bot_offers:
             # timer.next("Find product")
-            new_product, product_dict = self.database.find_product(product_obj)
+            new_product, product_dict = self.database.find_or_insert_product(product_obj)
 
             if new_product:
                 self.metrics_collector.handle_site_results(bot_name, "new_product")
@@ -297,6 +299,10 @@ class Monitoring (object):
 
             url_list = link_obj["links"]
             category = link_obj["category"]
+
+            print(category)
+            if category != "books":
+                continue
 
             # Get raw results from web scraping
             ready_pages += self.verify_ready_pages(url_list, category)

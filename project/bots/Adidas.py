@@ -1,13 +1,67 @@
-import logging
+import asyncio
+import json
+from enum import Enum
+from typing import Any
 
 from playwright.async_api import Page
 
 try:
-    from project.bots.base import BotRunner
+    from project.bots import base
 except Exception:
-    from base import BotRunner
+    import base
 
-class Adidas (BotRunner):
+class AdidasMessages(str, Enum):
+    ALL_TAGS_MATCHED = (
+        "*{brand}*: OFERTA PRA VOCÊ!\n"   # Site name
+        "\n"
+        "🔥🔥🔥 {name}\n"                           # Product name
+        "\n"
+        "Disponiveis:📏\n"
+        "{sizes}\n"
+        "\n"
+        "Preço 💵\n"
+        "R$ {price:.2f}"                          # Price
+        "\n"
+    )
+
+    AVG_LOW = (
+        "*{brand}*: Baixou de preco!\n"        # Site name
+        "\n"
+        "🔥🔥 {name}\n"                       # Product name
+        "\n"
+        "Disponiveis:📏\n"
+        "{sizes}\n"
+        "\n"
+        "Preço 💵\n"
+        "\n"
+        "R$ {price:.2f}\n"                  # Price
+        "Hist.: {avg}\n"                     # AVG Price
+        "\n"
+    )
+
+    MATCHED_OFFER = (
+        "*{brand}*: Você também pode gostar!\n"    # Site name
+        "\n"
+        "🔥 {name}\n"                        # Product name
+        "\n"
+        "Disponiveis:📏\n"
+        "{sizes}\n"
+        "\n"
+        "Preço 💵\n"
+        "R$ {price:.2f}"                   # Price
+        "\n"
+    )
+
+class Adidas (base.BotRunner):
+    messages: Enum = AdidasMessages
+
+    def __init__(
+        self, link: str, index: int, category: str, messages: Enum = ...,
+        metadata: dict[str, Any] = {}, api_link: str = None
+    ) -> None:
+        super().__init__(link, index, category, messages, metadata, api_link)
+        self.messages = AdidasMessages
+
     async def get_prices (self, page: Page):
         results = []
 
@@ -18,36 +72,38 @@ class Adidas (BotRunner):
 
         await page.goto(self.link, timeout=12000)
 
-        await page.wait_for_selector("div.glass-product-card__assets", timeout=1000)
+        raw_json = await (await page.query_selector("pre")).inner_text()
+        loaded_json = json.loads(raw_json)
 
-        products = await page.query_selector_all("div.glass-product-card")
-
+        products = loaded_json["raw"]["itemList"]["items"]
         for product in products:
-            name = await (await product.query_selector("p.glass-product-card__title")).inner_text()
-            details = name
+            extras = { "sizes": "" }
 
-            obj_prices = await product.query_selector_all("div.gl-price-item")
-            if obj_prices == []:
-                continue
+            url = "https://www.adidas.com.br" + product["link"]
+            name = product["altText"]
+            img = product["image"]["src"]
+            price = product["salePrice"]
+            old_price = product["price"]
 
-            price = (await obj_prices[0].inner_text())
-            old_price = (await obj_prices[1].inner_text())
+            # Extras
+            extras["sizes"] = ", ".join(
+                [size for size in product["availableSizes"] if size != "hidden"]
+            )
+            shipping = product.get("customBadge", "")
+            extras["shipping"] = shipping if "frete" in shipping.lower() else "Consulte o frete!"
 
-            url = await (
-                await product.query_selector("a.glass-product-card__assets-link")
-            ).get_attribute("href")
-
-            img = await (await product.query_selector("img")).get_attribute("src")
-
-            results.append(self.new_product(name, price, url, details, old_price, img))
+            results.append(
+                self.new_product(name, price, url, name, old_price, img, extras)
+            )
 
         return results
 
 
 if __name__ == "__main__":
-    bot = Adidas()
-    import asyncio
-    results = asyncio.run(
-        bot.run(headless=True, link="https://www.adidas.com.br/flash_sale")
-    )
+    ready_pages = [ Adidas(
+        link="https://www.adidas.com.br/api/plp/content-engine?query=flash_sale", index=0, category="clothes"
+    ) ]
+    results = asyncio.run(base.BotBase(ready_pages, True).run())
+
+
     print(results)

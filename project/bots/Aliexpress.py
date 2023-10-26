@@ -5,9 +5,9 @@ from typing import Any
 from playwright.async_api import Page
 
 try:
-    from project.bots.base import BotRunner
+    from project.bots import base
 except Exception:
-    from base import BotRunner
+    import base
 
 import json
 
@@ -44,7 +44,7 @@ class InternationalMessages(str, Enum):
         "\n"
     )
 
-class Aliexpress (BotRunner):
+class Aliexpress (base.BotRunner):
     messages: Enum = InternationalMessages
 
     async def get_prices (self, page: Page):
@@ -126,14 +126,11 @@ class Aliexpress (BotRunner):
             raise Exception("Impossible to load grid items")
 
 if __name__ == "__main__":
-    bot = Aliexpress()
-    results = asyncio.run(
-        bot.run(
-            headless=False,
-            link=(
-                "https://pt.aliexpress.com/category/201000054/"
-                "cellphones-telecommunications.html"
-            )
-        )
-    )
+    ready_pages = [ Aliexpress(
+        link="https://pt.aliexpress.com/category/201000054/cellphones-telecommunications.html",
+        index=0, category="eletronics"
+    ) ]
+    results = asyncio.run(base.BotBase(ready_pages, True).run())
+
+
     print(results)

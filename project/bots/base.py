@@ -41,6 +41,7 @@ class UserMessages(str, Enum):
 
 class BotRunner(ABC):
     link: str
+    api_link: str
     brand: str
     index: int
     metadata: dict[str, Any]
@@ -51,9 +52,10 @@ class BotRunner(ABC):
 
     def __init__(
         self, link: str, index: int, category: str, messages: Enum = UserMessages,
-        metadata: dict[str, Any] = None
+        metadata: dict[str, Any] = None, api_link: str = None
     ) -> None:
         self.link = link
+        self.api_link = api_link
         self.index = index
         self.category = category
         self.metadata = metadata if metadata is not None else {}
@@ -144,8 +146,11 @@ class BotRunner(ABC):
             ),
             await asyncio.sleep(wait_before_roll)
 
+    async def get_prices_from_api (self):
+        return []
+
     @abstractmethod
-    async def get_prices (self, tab: Page):
+    async def get_prices (self, browser_page: Page):
         ...
 
 class BotBase:
@@ -166,7 +171,7 @@ class BotBase:
         self.waiting_pages = waiting_pages
         self.headless = headless
 
-    async def run (self, save_prices: Callable) -> list[BotRunner]:
+    async def run (self, save_prices: Callable=None) -> list[BotRunner]:
         semaphore = asyncio.Semaphore(self.limit_pages)
 
         async with async_playwright() as playwright:
@@ -181,7 +186,13 @@ class BotBase:
 
             for future_task in asyncio.as_completed(tasks):
                 bot_result = await future_task
-                await save_prices([bot_result])
+
+                if save_prices is not None:
+                    await save_prices([bot_result])
+
+                else:
+                    await self.browser.close()
+                    return bot_result.results
 
             await self.browser.close()
 
@@ -189,31 +200,52 @@ class BotBase:
         self, tab: BotRunner, sem: asyncio.Semaphore
     ) -> BotRunner:
         async with sem:
-            page = await self.context.new_page()
-
-            # Get price or None
+            results = []
             bot_full_name = f"{tab.category}|{tab.brand}#{tab.index}"
-            logging.warning(f"Trying to run {bot_full_name}")
 
-            try:
-                results = await asyncio.wait_for(
-                    tab.get_prices(page),
-                    60 * 3
-                )
-                tab.is_ok = True
-                tab.results = results
+            if tab.api_link is not None:
+                try:
+                    logging.warning(f"Trying to run {bot_full_name} (API)")
+                    results = await tab.get_prices_from_api()
+                    tab.is_ok = True
+
+                except Exception as exc:
+                    logging.error(
+                        f"{bot_full_name}: Error ({str(exc)})."
+                    )
+                    logging.error(traceback.format_exc())
+                    tab.is_ok = False
+
+            if (isinstance(results, list) and len(results) == 0) and tab.link != "":
+                try:
+                    page = await self.context.new_page()
+
+                    # Get price or None
+                    logging.warning(f"Trying to run {bot_full_name}")
+
+                    results = await asyncio.wait_for(
+                        tab.get_prices(page),
+                        60 * 3
+                    )
+                    tab.is_ok = True
+
+                except TimeoutError as exc:
+                    tab.is_ok = False
+                    f"{bot_full_name}: Timeout"
+
+                except Exception as exc:
+                    tab.is_ok = False
+                    logging.error(
+                        f"{bot_full_name}: Error ({str(exc)})."
+                    )
+
+                finally:
+                    await page.close()
+
+            tab.results = results
+            if len(results) != 0:
                 logging.warning(
                     f"{bot_full_name}: {len(results)} found products."
                 )
-            except TimeoutError as exc:
-                tab.is_ok = False
-                f"{bot_full_name}: Timeout"
-            except Exception as exc:
-                tab.is_ok = False
-                logging.error(
-                    f"{bot_full_name}: Error ({str(exc)})."
-                )
-
-            await page.close()
 
             return tab

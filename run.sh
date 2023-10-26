@@ -34,6 +34,8 @@ elif [ $ambiente -eq 2 ]; then
         exit 1
     fi
 
+    python3 chat_bot.py
+
 else
     echo "Opção inválida. Por favor, escolha 1 para prod ou 2 para dev."
     exit 1

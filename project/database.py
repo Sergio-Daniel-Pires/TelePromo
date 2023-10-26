@@ -110,7 +110,7 @@ class Database:
 
         return "\n".join(ok + error + no_link + status_desc)
 
-    def find_product (self, product: Product) -> tuple[bool, dict]:
+    def find_or_insert_product (self, product: Product) -> tuple[bool, dict]:
         dict_product = self.database["products"].find_one(
             { "tags": { "$all": product.tags } }
         )
