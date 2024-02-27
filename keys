@@ -1,0 +1,4 @@
+prod: 6163736593:AAFRImnBRLZ3Ra7TRuECvoBT1juJQmNxUv8
+dev:  6649989525:AAHgeYTN-x7jjZy2GHAxaCXBSwz-w6e_87c
+
+ngrok config add-authtoken 2UMzMwzrSymLZ5Wx9R8DBrb09ho_KCuhS8w5UjZjYxUVqNRr

@@ -1,27 +1,91 @@
 version: '3'
 
 services:
-  mongodb:
-    container_name: md01
-    image: mongo:6-jammy
+  redis:
+    image: redis
+    container_name: tele-redis
     ports:
-      - '27017:27017'
-    volumes:
-      - ./db:/data/db
+      - "6379:6379"
     networks:
       - network
-  
-  telepromo:
-    depends_on: [mongodb]
-    container_name: tp01
+
+  prometheus:
+    image: prom/prometheus
+    container_name: tele_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - network
+    logging:
+      driver: none
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"  # Mapeamento da porta do host para a porta do container
+    networks:
+      - network  # Nome da rede que o container vai usar
+    volumes:
+      - grafana-storage:/var/lib/grafana  # Volume para armazenar dados persistentes do Grafana
+
+  ngrok:
+    container_name: ngrok-docker
+    depends_on: [grafana]
+    ports:
+      - "4040:4040"
+    image: wernight/ngrok
+    command: ngrok http grafana:3000 --authtoken "2UMzMwzrSymLZ5Wx9R8DBrb09ho_KCuhS8w5UjZjYxUVqNRr"
+    links:
+      - grafana
+    networks:
+      - network
+
+  web-scrapper:
+    depends_on: [prometheus, redis]
+    container_name: web-scrapper
+    environment:
+      MONGO_URL: "mongodb+srv://gaosan:Ws0IX3kripgqWKDW@telepromo.sgqmifa.mongodb.net/"
+      REDIS_URL: "redis"
     build:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ./telepromo:/project
+      - .:/telepromo
+    ports:
+      - "9091:9091"
+    expose:
+      - 9091
     networks:
       - network
-    command: ['python3', '/project/main.py']
+    restart: always
+    command: ['python3', 'web_scrapper.py']
+
+  chat-bot:
+    depends_on: [prometheus, redis, web-scrapper]
+    container_name: chat-bot
+    environment:
+      MONGO_URL: "mongodb+srv://gaosan:Ws0IX3kripgqWKDW@telepromo.sgqmifa.mongodb.net/"
+      REDIS_URL: "redis"
+      TELEGRAM_TOKEN: "6163736593:AAFRImnBRLZ3Ra7TRuECvoBT1juJQmNxUv8"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/telepromo
+    ports:
+      - "9092:9092"
+    expose:
+      - 9092
+    networks:
+      - network
+    restart: always
+    command: ['python3', 'chat_bot.py']
 
 networks:
   network:
+
+volumes:
+  grafana-storage:  # Definição do volume
