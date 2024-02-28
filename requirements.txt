@@ -1,0 +1,9 @@
+pymongo
+playwright
+numpy
+prometheus-client
+apscheduler==3.6.3
+spacy
+redis
+python-dotenv
+python-telegram-bot

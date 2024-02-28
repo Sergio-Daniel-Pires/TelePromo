@@ -1,0 +1,72 @@
+version: '3'
+
+services:
+  redis:
+    image: redis
+    container_name: tele-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - network
+
+  prometheus:
+    image: prom/prometheus
+    container_name: tele-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - network
+    logging:
+      driver: none
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    networks:
+      - network
+    volumes:
+      - grafana-storage:/var/lib/grafana
+
+  web-scrapper:
+    depends_on: [prometheus, redis]
+    container_name: web-scrapper
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/telepromo
+    ports:
+      - "9091:9091"
+    expose:
+      - 9091
+    networks:
+      - network
+    restart: always
+    command: ['python3', 'web_scrapper.py']
+
+  chat-bot:
+    depends_on: [prometheus, redis, web-scrapper]
+    container_name: chat-bot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/telepromo
+    ports:
+      - "9092:9092"
+    expose:
+      - 9092
+    networks:
+      - network
+    restart: always
+    command: ['python3', 'chat_bot.py']
+
+networks:
+  network:
+
+volumes:
+  grafana-storage:

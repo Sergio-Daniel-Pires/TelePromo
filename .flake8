@@ -1,0 +1,9 @@
+[flake8]
+extend-ignore = \
+    E201, E202, E211,
+    E302
+
+max-line-length = 100
+
+per-file-ignores =
+    project/links.py:E501
