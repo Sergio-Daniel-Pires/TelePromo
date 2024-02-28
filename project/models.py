@@ -1,4 +1,3 @@
-import importlib
 from typing import Any
 
 import bson
@@ -23,13 +22,28 @@ class User:
         self.max_wishes = kwargs.get("max_wishes", 10)
         self.premium = kwargs.get("premium", False)
 
-class Wished:
+class Wish:
+    price: float | int
+    blacklist: list[str]
+    allowed_stores: list[str]
+
+    def __init__(
+        self, price: float | int, allowed_stores: list[str] = None, blacklist: list[str] = []
+    ) -> None:
+        self.price = price
+        self.blacklist = blacklist
+        self.allowed_stores = allowed_stores
+
+        if allowed_stores is None:
+            self.allowed_stores = [ store for store in name_to_object if store != "Aliexpress" ]
+
+class WishGroup:
     """
     Wish object to use in PyMongo
     """
     _id: bson.ObjectId
     tags: list[str]
-    users: dict[int: float | int]
+    users: dict[int: Wish]
     num_wishs: int
 
     def __init__ (self, **kwargs) -> None:
@@ -39,8 +53,9 @@ class Wished:
         self.num_wishs = 0
 
 class Price:
-    _id: bson.ObjectId()
-    date: int           # time stamp
+    _id: bson.ObjectId
+    date: int           # TIMESTAMP
+    bot_name: int
     price: float
     old_price: float
     is_promo: bool
@@ -50,9 +65,9 @@ class Price:
     extras: dict[str, Any]
 
     def __init__ (
-        self, date: int, price: float, old_price: float, is_promo: bool, is_affiliate: bool,
-        url: str, extras: dict[str, Any] = None, users_sent: dict[int, int] = None,
-        _id: bson.ObjectId = None
+        self, date: int, price: float, old_price: float, is_promo: bool,
+        is_affiliate: bool, url: str, bot_name: str, extras: dict[str, Any] = None,
+        users_sent: dict[int, int] = None, _id: bson.ObjectId = None
     ) -> None:
         if not isinstance(_id, bson.ObjectId):
             _id = bson.ObjectId()
@@ -64,6 +79,7 @@ class Price:
         self.is_promo = is_promo
         self.is_affiliate = is_affiliate
         self.url = url
+        self.bot_name = bot_name
         self.users_sent = users_sent if users_sent is not None else {}
 
         self.extras = extras if extras is not None else {}
@@ -72,7 +88,8 @@ class Price:
         if (self.date - __value.date) < SECONDS_IN_DAY * 3:
             if self.price == __value.price:
                 if self.url == __value.url:
-                    return True
+                    if self.bot_name == __value.bot_name:
+                        return True
 
         return False
 
@@ -80,7 +97,7 @@ class Product:
     """
     Product object to use in PyMongo
     """
-    _id: bson.ObjectId()
+    _id: bson.ObjectId
     raw_name: str
     tags: list
     adjectives: list
@@ -106,11 +123,14 @@ class Product:
     def get_history (self) -> list[Price]:
         # Removed from list comprehension, 'extras' fault
         history = []
+
         for raw_item in self.history:
             if isinstance(raw_item, Price):
                 item = raw_item
+
             elif isinstance(raw_item, dict):
                 item = Price(**raw_item)
+
             else:
                 raise TypeError(f"{raw_item} is not a valid Price")
 
@@ -120,6 +140,7 @@ class Product:
 
     def avarage (self) -> float:
         values = [ float(value.price) for value in self.get_history() ]
+
         if len(values) == 0:
             return 0
 
@@ -143,7 +164,7 @@ class FormatPromoMessage:
     @classmethod
     def parse_msg (
         cls, result: dict[str, Any], avarage: float, prct_equal: float, bot_name: str,
-    ):
+    ) -> str:
         brand = result["brand"]
         img = result["img"]
         url = result["url"]
@@ -155,11 +176,12 @@ class FormatPromoMessage:
         output = cls.escape_msg(output_msg)
 
         output += f"[ \u206f ]({img})\n"
-        output += f"🛒 [\[COMPRAR NA {brand.upper()}\]]({url})\n"  # noqa W605 # type: ignore
+        output += f"🛒 [\\[COMPRAR NA {brand.upper()}\\]]({url})\n"  # W605 # type: ignore
+
         return output
 
     @classmethod
-    def escape_msg (cls, output: str):
+    def escape_msg (cls, output: str) -> str:
         # escape special chars:
         for char in (".", "!", "(", ")", "-", "_", "+", "#"):
             output = output.replace(char, rf"\{char}")

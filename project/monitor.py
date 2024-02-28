@@ -7,15 +7,16 @@ from typing import Any
 
 from redis import Redis
 
+from project import config
 from project.bots import base
 from project.database import Database
 from project.metrics_collector import MetricsCollector
-from project.models import FormatPromoMessage, Price, Product, Wished
+from project.models import FormatPromoMessage, Price, Product, Wish, WishGroup
 from project.utils import name_to_object
 from project.vectorizers import Vectorizers
 
 
-class Monitoring (object):
+class Monitoring :
     """
     Class to monitoring sites in url
     """
@@ -47,9 +48,7 @@ class Monitoring (object):
 
         self.today_offers = {}
 
-        self.redis_client.set(
-            "stop_signal", 0
-        )
+        self.redis_client.set("stop_signal", 0)
 
     def verify_ready_pages (self, urls: list[dict], category: str) -> list[asyncio.Future]:
         """
@@ -82,8 +81,8 @@ class Monitoring (object):
 
             try:
                 bot_instance = name_to_object[bot_name](
-                    link=link, index=idx, category=category, metadata=page_obj,
-                    api_link=api_link
+                    link=link, index=idx, category=category,
+                    metadata=page_obj, api_link=api_link
                 )
                 ready_to_run.append(bot_instance)
 
@@ -108,6 +107,7 @@ class Monitoring (object):
         # Verificações diarias pra economizar em querys do MongoDB
         if category not in self.today_offers:
             self.today_offers[category] = {}
+
         if bot_name not in self.today_offers[category]:
             self.today_offers[category][bot_name] = []
 
@@ -115,7 +115,8 @@ class Monitoring (object):
 
         # Get only relevant names from raw name
         tags, adjectives = await self.vectorizer.extract_tags(offer_name, category)
-        if tags == []:
+
+        if len(tags) == 0:
             return None, None, None
 
         product_obj = Product(
@@ -125,7 +126,6 @@ class Monitoring (object):
         new_product = False
 
         if product_obj not in bot_offers:
-            # timer.next("Find product")
             new_product, product_dict = self.database.find_or_insert_product(product_obj)
 
             if new_product:
@@ -143,8 +143,8 @@ class Monitoring (object):
         return new_product, product_obj, index
 
     async def handle_users_wishes (
-        self, all_wishes: list[Wished], product_obj: Product, product_idx: int, price_obj: Price,
-        price_idx: int, offer: dict[str, Any], avg: float
+        self, all_wishes: list[WishGroup], product_obj: Product, product_idx: int,
+        price_obj: Price, price_idx: int, offer: dict[str, Any], avg: float
     ):
         bot_name = offer["bot"]
         category = offer["category"]
@@ -172,17 +172,19 @@ class Monitoring (object):
                 continue
 
             for user_id in users_wish:
-
-                # Caso onde ja foi enviado aquela oferta para o usuario
+                # Case when msg was sent for user
                 if (
-                    user_id in price_obj.users_sent and
-                    price_obj.users_sent[user_id] == 1
+                    user_id in price_obj.users_sent and price_obj.users_sent[user_id] == 1
                 ):
                     continue
 
-                user_price = users_wish[user_id]
+                user_wish: Wish = users_wish[user_id]
 
-                if product_obj.price > user_price * 1.03 and user_price != 0:
+                if (
+                    (product_obj.price > user_wish.price * 1.03 and user_wish.price != 0) and
+                    len(set(user_wish.blacklist).intersection(set(list_user_tags))) == 0 and
+                    price_obj.bot_name in user_wish.allowed_stores
+                ):
                     self.database.add_new_user_in_price_sent(
                         product_obj._id, price_idx, user_id, 0
                     )
@@ -248,7 +250,7 @@ class Monitoring (object):
                     new_price = Price(
                         date=today, price=price, old_price=old_price,
                         is_promo=is_promo, is_affiliate=offer.get("is_affiliate", None),
-                        url=offer["url"], extras=offer.get("extras", {})
+                        url=offer["url"], bot_name=bot_name, extras=offer.get("extras", {})
                     )
 
                     is_new_price, price_obj, price_index = self.database.verify_or_add_price(
@@ -264,15 +266,14 @@ class Monitoring (object):
                         avarage = product_obj.avarage()
 
                     # Just to try msg are sent
-                    if category not in self.tested_categories or bot_name not in self.tested_brands:
+                    if bot_name not in self.tested_brands:
                         beautiful_msg = FormatPromoMessage.parse_msg(offer, avarage, 1, bot_name)
 
                         self.redis_client.lpush(
                             "msgs_to_send", json.dumps(
-                                { "chat_id": "783468028", "message": beautiful_msg }
+                                { "chat_id": config.BOT_OWNER_CHAT_ID, "message": beautiful_msg }
                             )
                         )
-                        self.tested_categories.add(category)
                         self.tested_brands.add(bot_name)
 
                     all_wishes = self.database.find_all_wishes(tags)
@@ -302,6 +303,7 @@ class Monitoring (object):
 
             # Get raw results from web scraping
             ready_pages += self.verify_ready_pages(url_list, category)
+
         logging.warning("Finished bots verification...")
 
         logging.warning("Started...")

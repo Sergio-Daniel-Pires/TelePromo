@@ -1,5 +1,4 @@
 import asyncio
-import logging
 
 from playwright.async_api import Page
 
@@ -22,6 +21,7 @@ class Terabyte (base.BotRunner):
         try:
             # BUG nao visivel
             await page.wait_for_selector("div.col-xs-12.col-sm-12.col-md-12.nopadding")
+
         except Exception as exc:
             await page.screenshot(path="Terabyte.jpg")
 
@@ -52,7 +52,6 @@ class Terabyte (base.BotRunner):
             results.append(self.new_product(name, price, url, details, old_price, img))
 
         return results
-
 
 if __name__ == "__main__":
     ready_pages = [ Terabyte(

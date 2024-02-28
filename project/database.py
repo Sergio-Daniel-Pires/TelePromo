@@ -1,13 +1,13 @@
-import os
 import time
 
 import bson
 import pymongo
 from pymongo.collection import Collection
 
+from project import config
 from project.links import LINKS
 from project.metrics_collector import MetricsCollector
-from project.models import Price, Product, User, Wished
+from project.models import Price, Product, User, Wish, WishGroup
 
 
 class Database:
@@ -20,10 +20,7 @@ class Database:
 
     def __init__ (self, metrics_client: MetricsCollector):
         self.metrics_client = metrics_client
-        self.client = pymongo.MongoClient(
-            os.environ.get('MONGO_URL', 'mongodb://localhost'),
-            os.environ.get("MONGO_PORT", 27017)
-        )
+        self.client = pymongo.MongoClient(config.MONGO_CONN_STR)
         self.database = self.client["telepromo"]
 
         # Initialize collections
@@ -186,7 +183,7 @@ class Database:
         return new_user, user
 
     # Wish Funcs
-    def user_wishes (self, user_id: int, user_name: str) -> list[Wished]:
+    def user_wishes (self, user_id: int, user_name: str) -> list[WishGroup]:
         return self.find_or_create_user(user_id, user_name)[1]["wish_list"]
 
     def verify_repeated_wish (self, user_id, tag_list, **kwargs):
@@ -238,7 +235,8 @@ class Database:
                     "name": product,
                     "tags": tag_list,
                     "adjectives": adjectives,
-                    "category": category
+                    "category": category,
+                    "blacklist": []
                 }
             }}
         )
@@ -252,7 +250,7 @@ class Database:
         wish_obj = self.database["wishes"].find_one_and_update(
             { "tags": tags },
             {
-                "$setOnInsert": Wished(
+                "$setOnInsert": WishGroup(
                                     tags=tags
                                 ).__dict__
             },
@@ -265,7 +263,7 @@ class Database:
         wish_obj = self.database["wishes"].update_one(
             { "_id":  wish_id },
             {
-                "$set": { f"users.{user_id}": 0 },
+                "$set": { f"users.{user_id}": Wish(0).__dict__ },
                 "$inc": { "num_wishs": 1 }
             }
         )
@@ -291,31 +289,41 @@ class Database:
             }
         )
 
-    def find_all_wishes (self, tags: list[str]) -> list[Wished]:
+    def find_all_wishes (self, tags: list[str]) -> list[WishGroup]:
         return self.database["wishes"].find(
             { "tags": { "$in": tags } }
         )
 
-    def update_wish_by_index (self, user_id: int, value: str, index: str):
-        value = int(value)
-
+    def update_wish_by_index (
+        self, user_id: int, index: str, price: str = None, blacklist: list[str] = None
+    ):
         user_obj = self.database["users"].find_one(
             { "_id": user_id }
         )
         wish_obj = user_obj["wish_list"]
+
         if index == -1:
             index = len(wish_obj) - 1
 
         wish_obj = wish_obj[index]
         wish_id = wish_obj["wish_id"]
 
-        self.database["users"].update_one(
-            { "_id": user_id }, { "$set": { f"wish_list.{index}.max": value } }
-        )
+        to_update = {}
+        if price:
+            self.database["users"].update_one(
+                { "_id": user_id }, { "$set": { f"wish_list.{index}.max": int(price) } }
+            )
+            to_update[f"users.{user_id}.price"] = int(price)
+
+        if blacklist:
+            self.database["users"].update_one(
+                { "_id": user_id }, { "$set": { f"wish_list.{index}.blacklist": blacklist } }
+            )
+            to_update[f"users.{user_id}.blacklist"] = blacklist
 
         self.database["wishes"].update_one(
             { "_id": wish_id },
-            { "$set": { f"users.{user_id}": value } }
+            { "$set": to_update }
         )
 
     def verify_or_add_price (
@@ -333,7 +341,7 @@ class Database:
             return is_new_price, history[index], index
 
     def add_new_user_in_price_sent (
-        self, product_id: bson.ObjectId(), price_idx: int, user_id: int, result: bool
+        self, product_id: bson.ObjectId, price_idx: int, user_id: int, result: bool
     ) -> None:
         self.database["products"].update_one(
             { "_id": product_id },

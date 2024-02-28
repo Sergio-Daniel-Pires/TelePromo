@@ -1,8 +1,8 @@
 import asyncio
-import requests
 from enum import Enum
 from typing import Any
 
+import requests
 from playwright.async_api import Page
 
 try:
@@ -121,6 +121,7 @@ class EstanteVirtual (base.BotRunner):
                     extras["sent_from"] = f'\n{seller["cidade"]} - {seller["uf"]}\n'
 
                     free_shipping = seller.get("frete_gratis", None)
+
                     if free_shipping:
                         extras["shipping"] = "Frete Grátis!"
 

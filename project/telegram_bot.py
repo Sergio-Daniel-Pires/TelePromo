@@ -12,21 +12,26 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
                           ContextTypes, ConversationHandler, MessageHandler,
                           filters)
 
+from project import config
 from project.database import Database
 from project.metrics_collector import MetricsCollector
 from project.models import FormatPromoMessage
+from project.utils import name_to_object, normalize_str
 from project.vectorizers import Vectorizers
 
 # First Level
-SELECTING_ACTION, SELECTING_CATEGORY, TO_ADD, TO_LIST = map(chr, range(4))
+(
+    SELECTING_ACTION, SELECTING_CATEGORY,
+    TO_ADD, TO_LIST, ADD_BLACKLIST
+) = map(chr, range(5))
 
 # Second
-ELETRONICS, CLOTHES, HOUSE, PETS, BOOKS, OTHERS = map(chr, range(4, 10))  # max 4 to 10 (6)
+ELETRONICS, CLOTHES, HOUSE, PETS, BOOKS, OTHERS = map(chr, range(5, 11))  # max 5 to 11 (6)
 
 # Third
-ANOTHER_PRODUCT = map(chr, range(10, 11))
+ANOTHER_PRODUCT = map(chr, range(11, 12))
 
-STOPPING, SHOWING, TYPING, LISTING, PRICING, SKIP = map(chr, range(11, 17))
+STOPPING, SHOWING, TYPING, LISTING, PRICING, SKIP = map(chr, range(12, 18))
 
 END = ConversationHandler.END
 
@@ -36,7 +41,9 @@ END = ConversationHandler.END
     SHOW_DONATE,
     RETURN,
     INDEX
-) = map(chr, range(16, 21))
+) = map(chr, range(19, 24))
+
+BLOCK_STORES, SHOW_BLOCK = map(chr, range(25, 27))
 
 # Monitoring funcs
 class TelegramBot ():
@@ -52,15 +59,34 @@ class TelegramBot ():
     def __init__ (self, **kwargs) -> None:
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
-        self.application = Application.builder().token(
-            os.environ["TELEGRAM_TOKEN"]
-        ).build()
+        self.application = Application.builder().token(config.TELEGRAM_TOKEN).build()
         logging.warning("Ligando o troço")
 
         self.metrics_collector = kwargs.get("metrics_collector")
         self.redis_client = kwargs.get("redis_client")
 
         self.redis_client.set("send_first_promo", 1)
+
+        self.block_stores_conv = ConversationHandler(
+            entry_points={
+                CallbackQueryHandler(self.list_stores, pattern="^" + str(TO_LIST) + "$")
+            },
+            states={
+                LISTING: [
+                    CallbackQueryHandler(self.return_to_start, pattern="^" + str(END) + "$"),
+                    CallbackQueryHandler(self.block_store, pattern=r"^B\d*$")
+                ]
+            },
+            fallbacks={
+                CommandHandler("start", self.start),
+                CommandHandler("help", self.show_help),
+                CommandHandler("status", self.show_status)
+            },
+            map_to_parent={
+                RETURN: SHOWING,
+                ANOTHER_PRODUCT: SHOWING
+            }
+        )
 
         self.list_product_conv = ConversationHandler(
             entry_points={
@@ -77,9 +103,20 @@ class TelegramBot ():
                     ),
                     CallbackQueryHandler(
                         self.save_price, pattern="^" + str(RETURN) + r"$|^E\d*$"
+                    ),
+                    CallbackQueryHandler(
+                        self.ask_for_blacklist, pattern="^" + str(RETURN) + r"$|^B\d*$"
+                    ),
+                    CallbackQueryHandler(
+                        self.show_block_stores, pattern="^" + str(RETURN) + r"$|^A\d*$"
                     )
                 ],
-                PRICING: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_product)]
+                PRICING: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_product)],
+                TYPING: [
+                    CallbackQueryHandler(self.save_blacklist, pattern="^" + str(RETURN)),
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_blacklist)
+                ],
+                SHOW_BLOCK: [ self.block_stores_conv ]
             },
             fallbacks={
                 CommandHandler("start", self.start),
@@ -131,7 +168,7 @@ class TelegramBot ():
                 )
             },
             states={
-                TO_ADD: [self.add_product_conv]
+                TO_ADD: [ self.add_product_conv ]
             },
             fallbacks=[
                 CallbackQueryHandler(self.return_to_start, pattern="^" + str(END) + "$"),
@@ -183,7 +220,6 @@ class TelegramBot ():
 
     async def show_help (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         await update.message.reply_text(
-                (
                     "O telepromobr é um bot de busca e alerta de ofertas!\n"
                     "Caso experiencie algum erro e/ou travamento durante a aplicação, por favor"
                     "utilize novamente o comando '/start' para retornar ao inicio.\n"
@@ -192,7 +228,6 @@ class TelegramBot ():
                     "Em caso de bugs ou problemas, relate a telepromobr@gmail.com\n"
                     "Por favor, se puder, de uma moral na aba 'Fortalecer Breja'\n"
                     "Obrigado por utilizar!"
-                )
             )
 
         context.user_data[START] = False
@@ -226,10 +261,8 @@ class TelegramBot ():
 
         if not context.user_data.get(START):
             await update.message.reply_text(
-                (
                     "Olá, eu sou o Bot TelePromoBr, "
                     "estou aqui para te ajudar a acompanhar preços/promoções de produtos"
-                )
             )
             await update.message.reply_text(text=text, reply_markup=keyboard)
 
@@ -362,8 +395,8 @@ class TelegramBot ():
         return PRICING
 
     async def save_product (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        if context.user_data.get(INDEX, None) is not None:
-            index = context.user_data[INDEX]
+        index = context.user_data.get(INDEX)
+        if index is not None:
             end_text = "Editado!"
             button = InlineKeyboardButton(text="Voltar", callback_data=str(RETURN))
             keyboard = InlineKeyboardMarkup.from_button(button)
@@ -394,12 +427,14 @@ class TelegramBot ():
 
             if not value.isnumeric():
                 end_text = "Valor invalido, tentar novamente?"
+
             else:
-                self.database.update_wish_by_index(user_id, value, index)
+                self.database.update_wish_by_index(user_id, index, price=value)
 
         option = update.callback_query
         if option and option.data == SKIP:
             await update.callback_query.edit_message_text(text=end_text, reply_markup=keyboard)
+
         else:
             await update.message.reply_text(text=end_text, reply_markup=keyboard)
 
@@ -454,15 +489,18 @@ class TelegramBot ():
 
         product_text = (
             f"Produto: {wish_obj['name']}\n"
-            f"Maximo: {wish_obj['max']}"
+            f"Maximo: {wish_obj['max']}\n"
+            f"Blacklist: {wish_obj['blacklist']}\n"
         )
 
         buttons = [
             [
                 InlineKeyboardButton(text="Remover", callback_data=f"R{index}"),
-                InlineKeyboardButton(text="Editar", callback_data=f"E{index}")
+                InlineKeyboardButton(text="Mudar Preço", callback_data=f"E{index}")
             ],
-            [InlineKeyboardButton(text="Voltar", callback_data=str(RETURN))]
+            [ InlineKeyboardButton(text="Blacklist", callback_data=f"B{index}") ],
+            # [ InlineKeyboardButton(text="Bloquear lojas", callback_data=f"A{index}") ],
+            [ InlineKeyboardButton(text="Voltar", callback_data=str(RETURN)) ]
         ]
         keyboard = InlineKeyboardMarkup(buttons)
 
@@ -494,6 +532,82 @@ class TelegramBot ():
 
         return SELECTING_ACTION
 
+    async def ask_for_blacklist (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        new_product_text = (
+            "Escreva abaixo as palavras que vão ser descartadas ao procurar produtos:\n"
+        )
+
+        button = InlineKeyboardButton(text="Remover blacklist (voltar)", callback_data=str(RETURN))
+        keyboard = InlineKeyboardMarkup.from_button(button)
+
+        await update.callback_query.edit_message_text(text=new_product_text, reply_markup=keyboard)
+
+        context.user_data[START] = True
+        option = update.callback_query.data
+        if option and option.startswith("B") and option[1:].isdigit():
+            context.user_data[INDEX] = int(option[1:])
+
+        return TYPING
+
+    async def save_blacklist (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        button = InlineKeyboardButton(text="Voltar", callback_data=str(RETURN))
+        keyboard = InlineKeyboardMarkup.from_button(button)
+
+        # User sent words to blacklist
+        if update.message:
+            blacklist_words = normalize_str(update.message.text).split(" ")
+            user_id = update.message.from_user["id"]
+
+            if blacklist_words == [""]:
+                blacklist_words = []
+
+            self.database.update_wish_by_index(
+                user_id, context.user_data[INDEX], blacklist=blacklist_words
+            )
+
+            end_text = "Blacklist salva!"
+            await update.message.reply_text(text=end_text, reply_markup=keyboard)
+
+        else:
+            end_text = "Blacklist não salva."
+
+            await update.callback_query.edit_message_text(text=end_text, reply_markup=keyboard)
+
+        return SHOWING
+
+    async def show_block_stores (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        option = update.callback_query.data
+
+        if option and option.startswith("A") and option[1:].isdigit():
+            context.user_data[INDEX] = int(option[1:])
+
+        return SHOW_BLOCK
+
+    async def list_stores (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        buttons = [[]]
+        user_id = context._user_id
+
+        for idx, store in enumerate(name_to_object):
+            last_line = buttons[-1]
+
+            last_line.append(InlineKeyboardButton(text=store, callback_data=f"B{idx}"))
+
+            if len(last_line) == 2:
+                buttons.append([])
+
+        buttons.append(InlineKeyboardButton(text="Voltar", callback_data=str(END)))
+
+        return LISTING
+
+    async def block_store (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        option = update.callback_query.data
+
+        if option and option.startswith("B") and option[1:].isdigit():
+            store_index = int(option[1:])
+            store = list(name_to_object)[store_index]
+
+        return RETURN
+
 class ImportantJobs:
     repeating_jobs: list[str]
     redis_client: Redis
@@ -523,14 +637,19 @@ class ImportantJobs:
             await asyncio.sleep(0.1)
 
     async def sent_ngrok_msg (self, context: ContextTypes.DEFAULT_TYPE):
-        ngrok_servers = requests.get("http://ngrok-docker:4040/api/tunnels").json()
+        try:
+            ngrok_url = os.environ.get("NGROK_URL", "ngrok-docker")
+            ngrok_servers = requests.get(f"http://{ngrok_url}:4040/api/tunnels").json()
 
-        public_url = ngrok_servers["tunnels"][0]["public_url"]
-        message = f"ngrok url:\n\n{public_url}"
-        beautiful_msg = FormatPromoMessage.escape_msg(message)
-        await TelegramBot.enque_message(context, "783468028", beautiful_msg)
+            public_url = ngrok_servers["tunnels"][0]["public_url"]
+            message = f"ngrok url:\n\n{public_url}"
+            beautiful_msg = FormatPromoMessage.escape_msg(message)
+            await TelegramBot.enque_message(context, config.BOT_OWNER_CHAT_ID, beautiful_msg)
 
-        logging.warning(f"public_url {public_url}")
+            logging.warning(f"public_url {public_url}")
+
+        except:
+            logging.warning("Ngrok not setted")
 
     async def reset_default_promo (self, context: ContextTypes.DEFAULT_TYPE):
         self.redis_client.set("sent_first_promo", 1)

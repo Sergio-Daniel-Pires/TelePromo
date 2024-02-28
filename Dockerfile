@@ -5,10 +5,9 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PLAYWRIGHT_BROWSERS_PATH=/app/ms-playwright
 
-# Install & use pipenv
-COPY Pipfile Pipfile.lock ./
-RUN python -m pip install --upgrade pip
-RUN pip install pipenv && pipenv install --dev --system --deploy
+# Install requirements
+COPY requirements.txt ./
+RUN pip install -r requirements.txt
 
 # Install sklearn
 RUN python -m spacy download pt_core_news_sm

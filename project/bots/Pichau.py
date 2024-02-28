@@ -1,9 +1,9 @@
 import asyncio
-import requests
+import json
 from enum import Enum
 from typing import Any
-import json
 
+import requests
 from playwright.async_api import Page
 
 try:
@@ -115,13 +115,14 @@ class Pichau (base.BotRunner):
                 installment = product["pichau_prices"]["final_price"]
                 max_installment = product["pichau_prices"]["max_installments"]
 
-                extras["installment"] = "ou R$ {} em {}x!".format(installment, max_installment)
+                extras["installment"] = f"ou R$ {installment} em {max_installment}x!"
 
                 warranty = product["garantia"]
                 if warranty is not None:
                     extras["warranty"] = f'\n(Garantia: {warranty})\n'
 
                 shipping_label = product.get("amasty_label", None)
+
                 if shipping_label is not None:
                     product_labels = shipping_label.get("product_labels", None)
                     if product_labels is not None and isinstance(product_labels, list):
@@ -130,7 +131,6 @@ class Pichau (base.BotRunner):
                 results.append(
                     self.new_product(name, price, url, details, old_price, img, extras)
                 )
-
 
         return results
 

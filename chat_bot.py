@@ -1,8 +1,8 @@
 import logging
-import os
 
 from redis import Redis
 
+from project import config
 from project.database import Database
 from project.metrics_collector import MetricsCollector
 from project.telegram_bot import ImportantJobs, TelegramBot
@@ -16,9 +16,7 @@ def main ():
     db = Database(metrics)
     vectorizers = Vectorizers()
 
-    redis_client = Redis(
-        host=os.environ.get('REDIS_URL', 'localhost'), port=6379
-    )
+    redis_client = Redis(host=config.REDIS_URL, port=6379)
 
     telegram_bot = TelegramBot(
         database=db,

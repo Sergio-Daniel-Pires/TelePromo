@@ -66,8 +66,10 @@ class Shein (base.BotRunner):
 
             url = build_url(offer["goods_url_name"], offer["goods_id"], offer["cat_id"])
             shipping = offer["pretreatInfo"]["mallTagsInfo"]["mall_name"]
+
             if shipping == "Envio Nacional":
                 shipping = "🇧🇷 Ja no Brasil!"
+
             else:
                 shipping = "✈️ Internacional"
 

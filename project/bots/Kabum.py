@@ -57,7 +57,7 @@ class KabumMessages(str, Enum):
         "\n"
     )
 
-def name_to_url(text: str) -> str:
+def name_to_url (text: str) -> str:
     # Substituir espaços por hífens
     transformed_string = text.replace(" ", "-")
 
@@ -130,6 +130,7 @@ class Kabum (base.BotRunner):
         campanhas = set(re.findall(r'href=\"\/ofertas\/(\w+.)\"', page))
 
         results = []
+
         for campanha in campanhas:
             try:
                 response = requests.get(api_link.format(campanha)).json()

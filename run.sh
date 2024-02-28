@@ -4,14 +4,12 @@
 echo "Escolha o ambiente (1- dev, 2- local):"
 read ambiente
 
-export TELEGRAM_TOKEN="6649989525:AAHgeYTN-x7jjZy2GHAxaCXBSwz-w6e_87c"
+export NGROK_URL="127.0.0.1"
 sudo docker start grafana
-sudo docker start tele_prometheus
+sudo docker start tele-prometheus
 
 # Verifica a escolha do usuário e exporta as configurações apropriadas
 if [ $ambiente -eq 1 ]; then
-    export MONGO_URL="mongodb+srv://gaosan:Ws0IX3kripgqWKDW@telepromo.sgqmifa.mongodb.net/"
-
     sudo docker start tele-redis
     python3 web_scrapper.py
 

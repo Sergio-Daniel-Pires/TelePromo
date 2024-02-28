@@ -76,6 +76,7 @@ class Adidas (base.BotRunner):
         loaded_json = json.loads(raw_json)
 
         products = loaded_json["raw"]["itemList"]["items"]
+
         for product in products:
             extras = { "sizes": "" }
 

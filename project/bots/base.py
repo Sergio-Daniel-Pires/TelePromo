@@ -3,8 +3,9 @@ import logging
 import re
 import traceback
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable
+from typing import Any
 
 from playwright.async_api import async_playwright
 from playwright.async_api._generated import Browser, BrowserContext, Page
@@ -71,6 +72,7 @@ class BotRunner(ABC):
             return value
 
         clean_string = value
+
         try:
             clean_string = re.sub(r"[^\d.,]", "", clean_string)
             clean_string = re.sub(r",", ".", clean_string)
@@ -116,8 +118,7 @@ class BotRunner(ABC):
         if details is None and "," in name:
             product["name"], product["details"] = product["name"].split(",", 1)
 
-        if details is None:
-            product["details"] = ""
+        product["details"] = details if details is not None else ""
 
         splitted = details.split(" ") if details is not None else ""
         if len(splitted) > 15:

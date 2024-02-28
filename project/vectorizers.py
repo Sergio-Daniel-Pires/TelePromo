@@ -5,7 +5,7 @@ import spacy
 from project.utils import STOP_WORDS, normalize_str
 
 
-class Vectorizers (object):
+class Vectorizers :
     trained_model: spacy.language.Language
 
     class Categorys (Enum):
