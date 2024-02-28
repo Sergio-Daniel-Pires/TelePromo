@@ -29,7 +29,6 @@ jobs:
           echo "TELEGRAM_TOKEN=${{ secrets.TELEGRAM_TOKEN }}" >> .env
 
           # Rebuild docker compose
-          docker-compose down
-          docker-compose pull  # Opcional, caso queira garantir a última versão das imagens
-          docker-compose build
-          docker-compose up -d
+          docker compose down
+          docker compose build
+          docker compose up -d
