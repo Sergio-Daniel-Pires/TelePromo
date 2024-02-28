@@ -25,7 +25,7 @@ jobs:
           # Update env vars
           echo "BOT_OWNER_CHAT_ID=783468028" > .env
           echo "REDIS_URL=redis" >> .env
-          echo "MONGO_CONN_STR=${{ secrets.MONGO_CONN_STR }}" > .env
+          echo "MONGO_CONN_STR=${{ secrets.MONGO_CONN_STR }}" >> .env
           echo "TELEGRAM_TOKEN=${{ secrets.TELEGRAM_TOKEN }}" >> .env
 
           # Rebuild docker compose
