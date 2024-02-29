@@ -24,7 +24,8 @@ LINKS = [
     {
         "category": "diversified",
         "links": [
-            Link("MagaLu")
+            Link("Magalu", "https://www.magazineluiza.com.br/selecao/ofertasdodia/", 900),
+            Link("Magalu", "https://www.magazineluiza.com.br/busca/ofertas+do+dia/", 900)
         ]
     },
     {
@@ -36,7 +37,8 @@ LINKS = [
             Link("Terabyte", "https://www.terabyteshop.com.br/promocoes", 900),
             Link(
                 "Pichau", "https://www.pichau.com.br", 900,
-                 api_link="https://www.pichau.com.br/api/pichau?query={}"),
+                api_link="https://www.pichau.com.br/api/pichau?query={}"
+            ),
 
             # Aliexpress
             Link("Aliexpress", "https://pt.aliexpress.com/category/201000054/cellphones-telecommunications.html", 900),
@@ -46,7 +48,12 @@ LINKS = [
             # Shein
             Link("Shein", "https://m.shein.com/br/Consumer-Electronic-c-4671.html", 900),
             Link("Shein", "https://m.shein.com/br/Cell-Phones---Accessories-c-2274.html", 900),
-            Link("Shein", "https://m.shein.com/br/Computer---Office-c-2275.html", 900)
+            Link("Shein", "https://m.shein.com/br/Computer---Office-c-2275.html", 900),
+
+            # MagaLu
+            Link("Magalu", "https://www.magazineluiza.com.br/celulares-e-smartphones/l/te/", 900),
+            Link("Magalu", "https://www.magazineluiza.com.br/tv-e-video/l/et/", 900),
+            Link("Magalu", "https://www.magazineluiza.com.br/informatica/l/in/", 900)
         ]
     },
     {
@@ -98,7 +105,9 @@ LINKS = [
             Link("Shein", "https://m.shein.com/br/new/New-in-Storage-and-Organization-sc-00220847.html", 900),
             Link("Shein", "https://m.shein.com/br/category/Shop-By-Kitchen-sc-00815025.html", 900),
             Link("Shein", "https://m.shein.com/br/Event---Party-Supplies-c-2496.html", 900),
-            Link("Shein", "https://m.shein.com/br/Home-Essentials-c-1959.html", 900)
+            Link("Shein", "https://m.shein.com/br/Home-Essentials-c-1959.html", 900),
+            Link("Magalu", "https://www.magazineluiza.com.br/moveis/l/mo/", 900),
+            Link("Magalu", "https://www.magazineluiza.com.br/eletrodomesticos/l/ed/", 900)
         ]
     },
     {
