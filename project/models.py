@@ -25,17 +25,16 @@ class User:
 class Wish:
     price: float | int
     blacklist: list[str]
-    allowed_stores: list[str]
 
     def __init__(
-        self, price: float | int, allowed_stores: list[str] = None, blacklist: list[str] = []
+        self, price: float | int, blacklist: list[str] = []
     ) -> None:
         self.price = price
         self.blacklist = blacklist
-        self.allowed_stores = allowed_stores
 
-        if allowed_stores is None:
-            self.allowed_stores = [ store for store in name_to_object if store != "Aliexpress" ]
+        if self.blacklist is None:
+            self.blacklist = [ "Aliexpress" ]
+
 
 class WishGroup:
     """
