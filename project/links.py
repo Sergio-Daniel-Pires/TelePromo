@@ -31,9 +31,7 @@ LINKS = [
     {
         "category": "eletronics",
         "links": [
-            Link(
-                "Kabum", "https://www.kabum.com.br", 900, api_link="API"
-            ),
+            Link("Kabum", "https://www.kabum.com.br", 900, api_link="API"),
             Link("Terabyte", "https://www.terabyteshop.com.br/promocoes", 900),
             Link(
                 "Pichau", "https://www.pichau.com.br", 900,
@@ -59,8 +57,8 @@ LINKS = [
     {
         "category": "clothes",
         "links": [
-            Link("Centauro"),
-            Link("Dafiti"),
+            # Link("Centauro"),
+            # Link("Dafiti"),
             Link(
                 "Nike", "https://www.nike.com.br/_next/data/v10-287-1/nav/ofertas/emoferta.json",
                 1800

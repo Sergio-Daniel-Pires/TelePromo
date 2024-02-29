@@ -18,7 +18,6 @@ class Magalu (base.BotRunner):
                 await route.abort()
 
             else:
-                print(f"{route.request.resource_type}\t{route.request}")
                 await route.continue_()
 
         await page.route("**/*", block)
