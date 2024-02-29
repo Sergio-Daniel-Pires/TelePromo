@@ -178,7 +178,7 @@ class Monitoring :
                 ):
                     continue
 
-                user_wish: Wish = users_wish[user_id]
+                user_wish = Wish(**users_wish[user_id])
 
                 if (
                     (product_obj.price > user_wish.price * 1.03 and user_wish.price != 0) and

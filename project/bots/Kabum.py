@@ -114,7 +114,7 @@ class Kabum (base.BotRunner):
 
         return results
 
-    async def get_prices_from_api(self):
+    async def get_prices_from_api (self):
         user_agent = (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             "(KHTML, like Gecko) Chrome/84.0.4147.105 Safari/537.36"
