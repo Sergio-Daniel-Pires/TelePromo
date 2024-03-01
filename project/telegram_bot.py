@@ -16,7 +16,7 @@ from project import config
 from project.database import Database
 from project.metrics_collector import MetricsCollector
 from project.models import FormatPromoMessage
-from project.utils import name_to_object, normalize_str
+from project.utils import brand_to_bot, normalize_str
 from project.vectorizers import Vectorizers
 
 # First Level
@@ -587,7 +587,7 @@ class TelegramBot ():
         buttons = [[]]
         user_id = context._user_id
 
-        for idx, store in enumerate(name_to_object):
+        for idx, store in enumerate(brand_to_bot):
             last_line = buttons[-1]
 
             last_line.append(InlineKeyboardButton(text=store, callback_data=f"B{idx}"))
@@ -604,7 +604,7 @@ class TelegramBot ():
 
         if option and option.startswith("B") and option[1:].isdigit():
             store_index = int(option[1:])
-            store = list(name_to_object)[store_index]
+            store = list(brand_to_bot)[store_index]
 
         return RETURN
 
