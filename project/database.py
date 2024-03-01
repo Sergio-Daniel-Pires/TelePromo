@@ -1,4 +1,5 @@
 import time
+from typing import Any
 
 import bson
 import pymongo
@@ -18,9 +19,11 @@ class Database:
     database: dict[str, Collection]
     metrics_client: MetricsCollector
 
-    def __init__ (self, metrics_client: MetricsCollector):
+    def __init__ (
+        self, metrics_client: MetricsCollector, mongo_client: pymongo.MongoClient = pymongo.MongoClient
+    ):
         self.metrics_client = metrics_client
-        self.client = pymongo.MongoClient(config.MONGO_CONN_STR)
+        self.client = mongo_client(config.MONGO_CONN_STR)
         self.database = self.client["telepromo"]
 
         # Initialize collections
@@ -247,6 +250,9 @@ class Database:
         tags = kwargs.get("tags")
         user_id = kwargs.get("user")
 
+        user_price = kwargs.get("max_price", 0)
+        user_bl = kwargs.get("blacklist", [])
+
         wish_obj = self.database["wishes"].find_one_and_update(
             { "tags": tags },
             {
@@ -263,7 +269,7 @@ class Database:
         wish_obj = self.database["wishes"].update_one(
             { "_id":  wish_id },
             {
-                "$set": { f"users.{user_id}": Wish(0).__dict__ },
+                "$set": { f"users.{user_id}": Wish(user_price, user_bl).__dict__ },
                 "$inc": { "num_wishs": 1 }
             }
         )
@@ -289,7 +295,7 @@ class Database:
             }
         )
 
-    def find_all_wishes (self, tags: list[str]) -> list[WishGroup]:
+    def find_all_wishes (self, tags: list[str]) -> list[dict[str, Any]]:
         return self.database["wishes"].find(
             { "tags": { "$in": tags } }
         )

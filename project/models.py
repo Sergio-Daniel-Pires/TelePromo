@@ -2,7 +2,7 @@ from typing import Any
 
 import bson
 
-from project.utils import SECONDS_IN_DAY, name_to_object
+from project.utils import SECONDS_IN_DAY, brand_to_bot
 
 
 class User:
@@ -32,10 +32,6 @@ class Wish:
         self.price = price
         self.blacklist = blacklist
 
-        if self.blacklist is None:
-            self.blacklist = [ "Aliexpress" ]
-
-
 class WishGroup:
     """
     Wish object to use in PyMongo
@@ -53,19 +49,21 @@ class WishGroup:
 
 class Price:
     _id: bson.ObjectId
+    brand: str
     date: int           # TIMESTAMP
-    bot_name: int
     price: float
     old_price: float
+    url: str
+    img: str
+    extras: dict[str, Any]
     is_promo: bool
     is_affiliate: bool
-    url: str
     users_sent: dict[int, int]
-    extras: dict[str, Any]
 
     def __init__ (
-        self, date: int, price: float, old_price: float, is_promo: bool,
-        is_affiliate: bool, url: str, bot_name: str, extras: dict[str, Any] = None,
+        self, date: int, price: float, old_price: float,
+        is_promo: bool, is_affiliate: bool, url: str,
+        brand: str, img: str, extras: dict[str, Any] = None,
         users_sent: dict[int, int] = None, _id: bson.ObjectId = None
     ) -> None:
         if not isinstance(_id, bson.ObjectId):
@@ -78,7 +76,8 @@ class Price:
         self.is_promo = is_promo
         self.is_affiliate = is_affiliate
         self.url = url
-        self.bot_name = bot_name
+        self.brand = brand
+        self.img = img
         self.users_sent = users_sent if users_sent is not None else {}
 
         self.extras = extras if extras is not None else {}
@@ -87,7 +86,7 @@ class Price:
         if (self.date - __value.date) < SECONDS_IN_DAY * 3:
             if self.price == __value.price:
                 if self.url == __value.url:
-                    if self.bot_name == __value.bot_name:
+                    if self.brand == __value.brand:
                         return True
 
         return False
@@ -156,26 +155,27 @@ class FormatPromoMessage:
     """
     Object that formats user message
     """
-    result: dict
+    result: Price
     avarage: float
     prct_equal: float
 
     @classmethod
     def parse_msg (
-        cls, result: dict[str, Any], avarage: float, prct_equal: float, bot_name: str,
+        cls, price_obj: Price, product_obj: Product, prct_equal: float
     ) -> str:
-        brand = result["brand"]
-        img = result["img"]
-        url = result["url"]
+        img = price_obj.img
+        url = price_obj.url
 
         # Get custom promo message if needed
-        bot_instance = name_to_object[bot_name]
-        output_msg = bot_instance.promo_message(result, avarage, prct_equal)
+        bot_instance = brand_to_bot[price_obj.brand]
+        output_msg = bot_instance.promo_message(
+            price_obj.__dict__, product_obj.avarage(), prct_equal, product_obj.raw_name
+        )
 
         output = cls.escape_msg(output_msg)
 
         output += f"[ \u206f ]({img})\n"
-        output += f"🛒 [\\[COMPRAR NA {brand.upper()}\\]]({url})\n"  # W605 # type: ignore
+        output += f"🛒 [\\[COMPRAR NA {price_obj.brand.upper()}\\]]({url})\n"  # W605 type: ignore
 
         return output
 

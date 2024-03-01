@@ -87,12 +87,13 @@ class BotRunner(ABC):
 
     @classmethod
     def promo_message (
-        cls, result: dict[str, Any], avarage: float, prct_equal: float
+        cls, result: dict[str, Any], avarage: float, prct_equal: float, name: str
     ):
 
         format_dict = { "prct_equal": prct_equal, "avg": avarage }
         format_dict.update(result)
         format_dict.update(result["extras"])
+        format_dict["name"] = name
 
         if prct_equal == 1:
             message = cls.messages.ALL_TAGS_MATCHED
@@ -110,9 +111,9 @@ class BotRunner(ABC):
         old_price: str = None, img: str = None, extras: dict[str, Any] = {}
     ):
         product = {
-            "bot": self.__class__.__name__, "category": self.category, "name": name,
+            "brand": self.__class__.__name__, "category": self.category, "name": name,
             "details": details, "price": price, "old_price": old_price, "url": url,
-            "img": img, "brand": self.brand, "extras": extras
+            "img": img, "extras": extras
         }
 
         if details is None and "," in name:

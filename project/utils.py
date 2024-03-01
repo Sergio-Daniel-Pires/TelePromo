@@ -4,7 +4,7 @@ from project.bots import (Adidas, Aliexpress, Cobasi, EstanteVirtual, Kabum,
                           MadeiraMadeira, Magalu, Nike, Pichau, Shein,
                           Terabyte)
 
-name_to_object = {
+brand_to_bot = {
     "Adidas": Adidas.Adidas, "Aliexpress": Aliexpress.Aliexpress,
     "Cobasi": Cobasi.Cobasi, "EstanteVirtual": EstanteVirtual.EstanteVirtual,
     "Kabum": Kabum.Kabum, "MadeiraMadeira": MadeiraMadeira.MadeiraMadeira,
