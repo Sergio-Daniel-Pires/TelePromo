@@ -191,7 +191,7 @@ class Monitoring :
                     "msgs_to_send", json.dumps({ "chat_id": user_id, "message": beautiful_msg })
                 )
 
-                self.update_sents(0, product_obj, price_idx, product_idx, brand, user_id)
+                self.update_sents(1, product_obj, price_idx, product_idx, brand, user_id)
 
     def update_sents (
         self, has_sent: bool, product_obj: Product, price_idx, product_idx, brand, user_id
@@ -201,7 +201,7 @@ class Monitoring :
         # Faster way to acess sent history dict
         if product_obj.category in self.today_offers:
             history = self.today_offers[product_obj.category][brand][product_idx].history
-            history[price_idx].users_sent[user_id] = has_sent
+            history[price_idx]["users_sent"][user_id] = has_sent
 
         if has_sent:
             self.metrics_collector.handle_user_response()
@@ -256,7 +256,9 @@ class Monitoring :
             )
 
             if is_new_price:
-                self.today_offers[category][brand][product_index].history.append(price_obj)
+                self.today_offers[category][brand][product_index].history.append(
+                    price_obj.__dict__
+                )
                 self.metrics_collector.handle_site_results(brand, "new_price")
 
             # Just to try msg are sent

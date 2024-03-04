@@ -336,15 +336,21 @@ class Database:
         self, tags: list[str], new_price: Price, product_obj: Product
     ) -> tuple[bool, Price, int]:
         history = product_obj.get_history()
-        is_new_price = new_price not in history
+
+        # if Price not in history, are a new price
+        try:
+            price_index = history.index(new_price)
+            is_new_price = False
+
+        except:
+            is_new_price = True
 
         if is_new_price:
             self.update_product_history(tags, new_price)
             return is_new_price, new_price, len(history)
 
         else:
-            index = history.index(new_price)
-            return is_new_price, history[index], index
+            return is_new_price, history[price_index], price_index
 
     def add_new_user_in_price_sent (
         self, product_id: bson.ObjectId, price_idx: int, user_id: int, result: bool
