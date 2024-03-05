@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 import bson
@@ -50,27 +51,26 @@ class WishGroup:
 class Price:
     _id: bson.ObjectId
     brand: str
-    date: int           # TIMESTAMP
     price: float
     old_price: float
     url: str
     img: str
     extras: dict[str, Any]
+    details: str
     is_promo: bool
     is_affiliate: bool
     users_sent: dict[int, int]
 
     def __init__ (
-        self, date: int, price: float, old_price: float,
-        is_promo: bool, is_affiliate: bool, url: str,
-        brand: str, img: str, extras: dict[str, Any] = None,
-        users_sent: dict[int, int] = None, _id: bson.ObjectId = None
+        self, price: float, old_price: float, is_promo: bool, is_affiliate: bool,
+        url: str, brand: str, img: str, extras: dict[str, Any] = None, date = None,
+        users_sent: dict[int, int] = None, _id: bson.ObjectId = None, details = None
     ) -> None:
         if not isinstance(_id, bson.ObjectId):
             _id = bson.ObjectId()
 
         self._id = _id
-        self.date = date
+        self.date = date if date is not None else int(time.time() * 1000)
         self.price = price
         self.old_price = old_price
         self.is_promo = is_promo
@@ -82,8 +82,10 @@ class Price:
 
         self.extras = extras if extras is not None else {}
 
+        self.details = details if details is not None else ""
+
     def __eq__ (self, __value: object) -> bool:
-        if (self.date - __value.date) < SECONDS_IN_DAY * 3:
+        if abs((self.date - __value.date) // 1000) < SECONDS_IN_DAY * 3:
             if self.price == __value.price:
                 if self.url == __value.url:
                     if self.brand == __value.brand:

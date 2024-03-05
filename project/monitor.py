@@ -170,7 +170,7 @@ class Monitoring :
                 continue
 
             for user_id in users_wish:
-                # Case when msg was sent for user
+                # Case when msg was already sent for user
                 if (
                     user_id in price_obj.users_sent and price_obj.users_sent[user_id] == 1
                 ):
@@ -246,16 +246,19 @@ class Monitoring :
                 is_promo = True
 
             new_price = Price(
-                date=int(time.time() * 1000), price=price, old_price=old_price,
-                is_promo=is_promo, is_affiliate=offer.get("is_affiliate", None),
-                url=offer["url"], brand=brand, img=offer["img"], extras=offer.get("extras", {})
+                price=price, old_price=old_price, is_promo=is_promo,
+                is_affiliate=offer.get("is_affiliate", None), url=offer["url"], brand=brand,
+                img=offer["img"], extras=offer.get("extras", {}), details=offer["details"]
             )
 
             is_new_price, price_obj, price_index = self.database.verify_or_add_price(
                 tags, new_price, product_obj
             )
 
-            if is_new_price:
+            if (
+                is_new_price or
+                price_obj.__dict__ not in self.today_offers[category][brand][product_index].history
+            ):
                 self.today_offers[category][brand][product_index].history.append(
                     price_obj.__dict__
                 )
@@ -275,8 +278,7 @@ class Monitoring :
             all_wishes = self.database.find_all_wishes(tags)
 
             await self.send_products_to_wish(
-                all_wishes, product_obj, product_index,
-                price_obj, price_index
+                all_wishes, product_obj, product_index, price_obj, price_index
             )
 
         except Exception:

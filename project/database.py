@@ -9,6 +9,7 @@ from project import config
 from project.links import LINKS
 from project.metrics_collector import MetricsCollector
 from project.models import Price, Product, User, Wish, WishGroup
+from project.utils import SECONDS_IN_HOUR
 
 
 class Database:
@@ -26,8 +27,6 @@ class Database:
         self.client = mongo_client(config.MONGO_CONN_STR)
         self.database = self.client["telepromo"]
 
-        # Initialize collections
-        # if "links" not in self.database.list_collection_names():
         self.create_links(LINKS)
 
     # Product Funcs
@@ -58,7 +57,7 @@ class Database:
             new_fields[f"links.{index}.repeat"] = base_repeat
 
         if status == "ERROR":
-            if metadata["repeat"] < 3600:
+            if metadata["repeat"] < SECONDS_IN_HOUR:
                 new_fields[f"links.{index}.repeat"] = metadata["repeat"] + 60 * 5
 
         self.database["links"].update_one(
