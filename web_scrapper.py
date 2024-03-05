@@ -12,6 +12,14 @@ from project.monitor import Monitoring
 from project.vectorizers import Vectorizers
 
 logging.getLogger().setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
+
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+
+# Adiciona o handler ao logger raiz
+logging.getLogger().addHandler(stream_handler)
+
 
 def main ():
     metrics = MetricsCollector(9091)
@@ -37,7 +45,7 @@ def main ():
         current_date = datetime.date.today()
 
         if elapsed < monitor.shortest_bot_time:
-            logging.warning(
+            logging.debug(
                 "Ainda não se passaram "
                 f"{int(monitor.shortest_bot_time / 60)} min "
                 f"{float(elapsed/60):.1f}"

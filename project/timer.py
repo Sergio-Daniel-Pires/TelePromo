@@ -28,5 +28,6 @@ class Timer:
             if len(self.timers[task]) == 2:
                 started, finished = self.timers[task]
                 logging.debug(f"{task}\t{finished - started}s")
+
             else:
                 logging.debug(f"{task} {len(self.timers[task])} times")

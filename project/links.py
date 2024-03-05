@@ -60,7 +60,7 @@ LINKS = [
             # Link("Centauro"),
             # Link("Dafiti"),
             Link(
-                "Nike", "https://www.nike.com.br/_next/data/v10-287-1/nav/ofertas/emoferta.json",
+                "Nike", "https://www.nike.com.br/_next/data/v10-331-0/nav/ofertas/emoferta.json",
                 1800
             ),
             Link(

@@ -1,5 +1,6 @@
 import json
-from unittest.mock import MagicMock
+import time
+from unittest.mock import MagicMock, patch
 
 import mongomock
 import pytest
@@ -163,3 +164,49 @@ class TestDontSend:
 
         second_send = redis_client.lpop("msgs_to_send")
         assert second_send is None, "Second need to be blocked, because are repeated"
+
+class TestSendAfter:
+    @pytest.mark.parametrize(["offer", "user_wishes", "delay"],
+        [
+            (
+                'iphone_offer',
+                [
+                    { "tags": [ "iphone" ], "user": "1", "max_price": 1000 }
+                ],
+                ((86400 * 3) + 100) # 3 days in seconds + 100 sec
+            )
+        ]
+    )
+    @patch('project.models.time')
+    @pytest.mark.asyncio
+    async def test_repeated_after_3_days (
+        self, mock_time, offer, user_wishes, delay, redis_client: FakeRedis, request
+    ):
+        # Prepare DB for requests
+        db = Database(None, mongo_client=mongomock.MongoClient)
+
+        vectorizers = Vectorizers()
+
+        monitor = Monitoring(
+            retry=3,
+            database=db,
+            vectorizer=vectorizers,
+            redis_client=redis_client,
+            metrics_collector=MagicMock()
+        )
+        monitor.tested_brands = { "Aliexpress", "Magalu" }
+
+        for user_wish in user_wishes:
+            monitor.database.new_wish(**user_wish)
+
+        mock_time.time = time.time
+        await monitor.send_offer_to_user(request.getfixturevalue(offer))
+
+        first_send = redis_client.lpop("msgs_to_send")
+        assert first_send is not None, "First need to send, because are not repeated"
+
+        mock_time.time = lambda: time.time() + delay
+        await monitor.send_offer_to_user(request.getfixturevalue(offer))
+
+        second_send = redis_client.lpop("msgs_to_send")
+        assert second_send is not None, "Second need to send, because three days have passed"

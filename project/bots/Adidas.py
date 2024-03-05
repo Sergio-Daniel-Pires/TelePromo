@@ -99,12 +99,10 @@ class Adidas (base.BotRunner):
 
         return results
 
-
 if __name__ == "__main__":
     ready_pages = [ Adidas(
         link="https://www.adidas.com.br/api/plp/content-engine?query=flash_sale", index=0, category="clothes"
     ) ]
     results = asyncio.run(base.BotBase(ready_pages, True).run())
-
 
     print(results)

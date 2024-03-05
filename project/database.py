@@ -9,6 +9,7 @@ from project import config
 from project.links import LINKS
 from project.metrics_collector import MetricsCollector
 from project.models import Price, Product, User, Wish, WishGroup
+from project.utils import SECONDS_IN_HOUR
 
 
 class Database:
@@ -26,12 +27,13 @@ class Database:
         self.client = mongo_client(config.MONGO_CONN_STR)
         self.database = self.client["telepromo"]
 
-        # Initialize collections
-        # if "links" not in self.database.list_collection_names():
         self.create_links(LINKS)
 
     # Product Funcs
-    def create_links (self, all_links: list):
+    def create_links (self, all_links: list[dict[str, Any]]):
+        """
+        Create link's entries into database
+        """
         for categorys in all_links:
             dict_all_links = [ link.__dict__ for link in categorys["links"] ]
             self.database["links"].find_one_and_update(
@@ -40,11 +42,17 @@ class Database:
                 upsert=True
             )
 
-    def get_links (self):
+    def get_links (self) -> pymongo.CursorType:
+        """
+        Retrieve links from database
+        """
         links = self.database["links"].find({})
         return links
 
     def update_link (self, category: str, index: int, status: str, metadata: str):
+        """
+        Update link in database. On error, increases repeat time to diminuir processing
+        """
         time_now = int(time.time())
         base_repeat = metadata["base_repeat"]
 
@@ -58,7 +66,7 @@ class Database:
             new_fields[f"links.{index}.repeat"] = base_repeat
 
         if status == "ERROR":
-            if metadata["repeat"] < 3600:
+            if metadata["repeat"] < SECONDS_IN_HOUR:
                 new_fields[f"links.{index}.repeat"] = metadata["repeat"] + 60 * 5
 
         self.database["links"].update_one(
@@ -67,7 +75,9 @@ class Database:
         )
 
     def get_site_status (self) -> str:
-        # Adicionar tempo de proxima execucao
+        """
+        Show site status to user on chat
+        """
         links = self.get_links()
 
         status_desc = [
@@ -96,12 +106,7 @@ class Database:
                     color = "🟢 - "
                     current_list = ok
 
-                    # last = link["last"]
-                    # repeat = link["repeat"]
-                    # next_run = int((last + repeat - time.time()) / 60)
                     extra_info = ""
-
-                    # extra_info = f" Att.: {next_run}m"
 
                 msg = color + f"{category['category']}/{link['name']}" + extra_info
 
@@ -110,45 +115,58 @@ class Database:
 
         return "\n".join(ok + error + no_link + status_desc)
 
-    def find_or_insert_product (self, product: Product) -> tuple[bool, dict]:
+    def find_or_insert_product (self, product: Product) -> tuple[bool, dict[str, Any]]:
+        """
+        Insert product if was the first time tags appears
+        """
         if product.category in ( "eletronics", "books" ) and len(product.adjectives) != 0:
             product.tags = product.tags + product.adjectives
             product.adjectives = []
 
-        dict_product = self.database["products"].find_one(
-            { "tags": { "$all": product.tags } }
-        )
-        new_product = False
+        db_product = self.database["products"].find_one({ "tags": { "$all": product.tags } })
+        is_new_product = False
 
-        if dict_product is None:
-            self.database["products"].insert_one(product.__dict__)
-            dict_product = product.__dict__
-            new_product = True
+        if db_product is None:
+            product = product.__dict__
+            self.database["products"].insert_one(product)
+            is_new_product = True
 
-        return new_product, dict_product
+        else:
+            product = db_product
 
-    def update_product_history (
-        self, tags: list, new_price: dict | Price = None
-    ) -> None:
+        return is_new_product, product
+
+    def update_product_history (self, tags: list, new_price: dict | Price = None):
+        """
+        Update product history into database with new price
+        """
         if type(new_price) is dict:
             new_price = Price(**new_price)
 
         price = new_price.price
 
-        self.database["products"].update_one({"tags": {"$all": tags}}, {"$set": {"price": price}})
+        self.database["products"].update_one(
+            { "tags": {"$all": tags} }, { "$set": { "price": price } }
+        )
 
         if type(new_price) is Price:
             new_price = new_price.__dict__
 
         self.database["products"].update_one(
-            {"tags": {"$all": tags}}, {"$push": {"history": new_price}}
+            { "tags": { "$all": tags } }, { "$push": { "history": new_price } }
         )
 
     def find_all_without_adjectives (self) -> pymongo.CursorType:
+        """
+        Get all products WITHOUT adjetctives
+        """
         all_finds = self.database["products"].find({"adjectives": {"$exists": False}})
         return all_finds
 
-    def set_adjetives (self, old_tags: list, new_tags: list, adjectives: list):
+    def set_adjectives (self, old_tags: list, new_tags: list, adjectives: list):
+        """
+        Convert a product with tags to tags + adjectives
+        """
         self.database["products"].update_one(
             { "tags": { "$all": old_tags } },
             {
@@ -160,10 +178,16 @@ class Database:
         )
 
     # User Funcs
-    def find_user (self, user_id: int):
+    def find_user (self, user_id: int) -> pymongo.CursorType:
+        """
+        Find an user by user_id
+        """
         return self.database["users"].find_one({ "_id": user_id })
 
     def find_or_create_user (self, user_id: int, user_name: str):
+        """
+        Return an user, if user not exists yet, creates one.
+        """
         new_obj_user = User(
                             user_id, user_name, wish_list=[], premium=False
                         ).__dict__
@@ -187,6 +211,9 @@ class Database:
 
     # Wish Funcs
     def user_wishes (self, user_id: int, user_name: str) -> list[WishGroup]:
+        """
+        Return user wishes from user id
+        """
         return self.find_or_create_user(user_id, user_name)[1]["wish_list"]
 
     def verify_repeated_wish (self, user_id, tag_list, **kwargs):
@@ -201,9 +228,13 @@ class Database:
         return False
 
     def insert_new_user_wish (
-        self, user_id: str, user_name: str, tag_list: list[str],
-        product: str, category: str, max_price: int = 0, adjectives: list[str] = None
+        self, user_id: str, user_name: str, tag_list: list[str], product: str,
+        category: str, max_price: int = 0, adjectives: list[str] = None
     ) -> tuple[bool, str]:
+        """
+        Verify and insert a new user wish into User model.
+        Verifications: Max 15 words, min 1 tag, not repeated wish, max 10 wish per user.
+        """
         adjectives = adjectives if adjectives is not None else []
         _, user = self.find_or_create_user(user_id, user_name)
         user_wish = user.get("wish_list")
@@ -246,7 +277,10 @@ class Database:
 
         return (True, "Adicionado com sucesso!")
 
-    def new_wish (self, **kwargs):
+    def new_wish (self, **kwargs) -> bson.ObjectId:
+        """
+        Add new wish to WishGroup model
+        """
         tags = kwargs.get("tags")
         user_id = kwargs.get("user")
 
@@ -277,6 +311,9 @@ class Database:
         return wish_id
 
     def remove_user_wish (self, user_id: int, index: int):
+        """
+        Remove user wish from User and WishGroup models
+        """
         user_obj = self.database["users"].find_one(
             {"_id": user_id}
         )
@@ -296,6 +333,9 @@ class Database:
         )
 
     def find_all_wishes (self, tags: list[str]) -> list[dict[str, Any]]:
+        """
+        Find all wishes by tags
+        """
         return self.database["wishes"].find(
             { "tags": { "$in": tags } }
         )
@@ -303,6 +343,9 @@ class Database:
     def update_wish_by_index (
         self, user_id: int, index: str, price: str = None, blacklist: list[str] = None
     ):
+        """
+        Update wish price or blacklist
+        """
         user_obj = self.database["users"].find_one(
             { "_id": user_id }
         )
@@ -335,6 +378,9 @@ class Database:
     def verify_or_add_price (
         self, tags: list[str], new_price: Price, product_obj: Product
     ) -> tuple[bool, Price, int]:
+        """
+        Add price into Product model, if is not repeated price
+        """
         history = product_obj.get_history()
 
         # if Price not in history, are a new price
@@ -355,6 +401,9 @@ class Database:
     def add_new_user_in_price_sent (
         self, product_id: bson.ObjectId, price_idx: int, user_id: int, result: bool
     ) -> None:
+        """
+        Save user id to don't repeat send
+        """
         self.database["products"].update_one(
             { "_id": product_id },
             { "$set": { f"history.{price_idx}.users_sent.{user_id}": result } }

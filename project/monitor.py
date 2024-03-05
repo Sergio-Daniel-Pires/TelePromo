@@ -16,7 +16,7 @@ from project.utils import brand_to_bot
 from project.vectorizers import Vectorizers
 
 
-class Monitoring :
+class Monitoring ():
     """
     Class to monitoring sites in url
     """
@@ -50,7 +50,9 @@ class Monitoring :
 
         self.redis_client.set("stop_signal", 0)
 
-    def enqueue_bot_pages (self, urls: list[dict], category: str) -> list[asyncio.Future]:
+    def enqueue_bot_pages (
+        self, urls: list[dict[str, Any]], category: str
+    ) -> list[asyncio.Future]:
         """
         Get a URL and return the dict with prices
         """
@@ -170,7 +172,7 @@ class Monitoring :
                 continue
 
             for user_id in users_wish:
-                # Case when msg was sent for user
+                # Case when msg was already sent for user
                 if (
                     user_id in price_obj.users_sent and price_obj.users_sent[user_id] == 1
                 ):
@@ -240,22 +242,26 @@ class Monitoring :
                 self.metrics_collector.handle_error("parse_price_to_float")
                 logging.error("Mismatch price error (not valid float), skipping...")
                 logging.error(traceback.format_exc())
+                raise TypeError(f"{brand} Product: {name} - {price} has invalid price value ({type(price)})")
 
             is_promo = offer.get("promo", None)
             if is_promo is None and (old_price > price):
                 is_promo = True
 
             new_price = Price(
-                date=int(time.time() * 1000), price=price, old_price=old_price,
-                is_promo=is_promo, is_affiliate=offer.get("is_affiliate", None),
-                url=offer["url"], brand=brand, img=offer["img"], extras=offer.get("extras", {})
+                price=price, old_price=old_price, is_promo=is_promo,
+                is_affiliate=offer.get("is_affiliate", None), url=offer["url"], brand=brand,
+                img=offer["img"], extras=offer.get("extras", {}), details=offer["details"]
             )
 
             is_new_price, price_obj, price_index = self.database.verify_or_add_price(
                 tags, new_price, product_obj
             )
 
-            if is_new_price:
+            if (
+                is_new_price or
+                price_obj.__dict__ not in self.today_offers[category][brand][product_index].history
+            ):
                 self.today_offers[category][brand][product_index].history.append(
                     price_obj.__dict__
                 )
@@ -275,8 +281,7 @@ class Monitoring :
             all_wishes = self.database.find_all_wishes(tags)
 
             await self.send_products_to_wish(
-                all_wishes, product_obj, product_index,
-                price_obj, price_index
+                all_wishes, product_obj, product_index, price_obj, price_index
             )
 
         except Exception:
