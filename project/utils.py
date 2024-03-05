@@ -47,6 +47,12 @@ STOP_WORDS = (
 
 
 def normalize_str (text: str) -> str:
+    """
+    Get text and remove accent marks and extra spaces
+
+    :param text: Text string
+    :return: Normalized string
+    """
     text = text.lower()
     text = re.sub(r"[ãâáàä]", "a", text)
     text = re.sub(r"[êéèë]", "e", text)

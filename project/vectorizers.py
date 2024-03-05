@@ -5,7 +5,7 @@ import spacy
 from project.utils import STOP_WORDS, normalize_str
 
 
-class Vectorizers :
+class Vectorizers ():
     trained_model: spacy.language.Language
 
     class Categorys (Enum):
@@ -31,19 +31,13 @@ class Vectorizers :
             self.categorys.ELETRONICS.value: self.eletronic_model
         }
 
-    def select_category (self, name: str) -> list[float]:
-        """
-        Get a name and return a category
-        """
-        return "diversified"
-
-    def select_vectorizer (self, category: str):
-        """
-        Get a category and returns model function
-        """
-        return self.funcs[category]
-
     async def remove_stop_words (self, normalized_product_name: str) -> tuple[list[str], list[str]]:
+        """
+        Remove stop words from product name
+
+        :param normalized_product_name: _description_
+        :return: _description_
+        """
         doc = self.trained_model(normalized_product_name)
 
         tags = []
@@ -64,7 +58,15 @@ class Vectorizers :
 
         return tags, adjectives
 
-    async def extract_tags (self, raw_product_name: str, category: str) -> tuple[list[str], list[str]]:
+    async def extract_tags (
+        self, raw_product_name: str, category: str
+    ) -> tuple[list[str], list[str]]:
+        """Split product name into tokens
+
+        :param raw_product_name: Product name as strings
+        :param category: Product category, like eletronics
+        :return: product tags and adjectives
+        """
         # Cutted function because vectorizer is not good (not enough data)
 
         normalized_product_name = normalize_str(raw_product_name)

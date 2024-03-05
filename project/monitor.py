@@ -16,7 +16,7 @@ from project.utils import brand_to_bot
 from project.vectorizers import Vectorizers
 
 
-class Monitoring :
+class Monitoring ():
     """
     Class to monitoring sites in url
     """
@@ -50,7 +50,9 @@ class Monitoring :
 
         self.redis_client.set("stop_signal", 0)
 
-    def enqueue_bot_pages (self, urls: list[dict], category: str) -> list[asyncio.Future]:
+    def enqueue_bot_pages (
+        self, urls: list[dict[str, Any]], category: str
+    ) -> list[asyncio.Future]:
         """
         Get a URL and return the dict with prices
         """
@@ -240,6 +242,7 @@ class Monitoring :
                 self.metrics_collector.handle_error("parse_price_to_float")
                 logging.error("Mismatch price error (not valid float), skipping...")
                 logging.error(traceback.format_exc())
+                raise TypeError(f"{brand} Product: {name} - {price} has invalid price value ({type(price)})")
 
             is_promo = offer.get("promo", None)
             if is_promo is None and (old_price > price):
