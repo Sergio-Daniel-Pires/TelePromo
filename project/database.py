@@ -123,13 +123,16 @@ class Database:
             product.tags = product.tags + product.adjectives
             product.adjectives = []
 
-        product = self.database["products"].find_one({ "tags": { "$all": product.tags } })
+        db_product = self.database["products"].find_one({ "tags": { "$all": product.tags } })
         is_new_product = False
 
-        if product is None:
-            self.database["products"].insert_one(product.__dict__)
+        if db_product is None:
             product = product.__dict__
+            self.database["products"].insert_one(product)
             is_new_product = True
+
+        else:
+            product = db_product
 
         return is_new_product, product
 
