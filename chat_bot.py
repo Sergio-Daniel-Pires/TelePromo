@@ -9,6 +9,13 @@ from project.telegram_bot import ImportantJobs, TelegramBot
 from project.vectorizers import Vectorizers
 
 logging.getLogger().setLevel(logging.WARNING)
+formatter = logging.Formatter('%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
+
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+
+# Adiciona o handler ao logger raiz
+logging.getLogger().addHandler(stream_handler)
 
 def main ():
     metrics = MetricsCollector(9092)
