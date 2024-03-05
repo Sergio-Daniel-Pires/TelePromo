@@ -107,7 +107,7 @@ class MadeiraMadeira (base.BotRunner):
 if __name__ == "__main__":
     ready_pages = [ MadeiraMadeira(
         link="https://www.madeiramadeira.com.br/ofertas-do-dia", index=0,
-        category="house", api_link=True
+        category="house", api_link=""
     ) ]
     results = asyncio.run(base.BotBase(ready_pages, True).run())
 

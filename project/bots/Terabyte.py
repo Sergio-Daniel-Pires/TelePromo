@@ -60,5 +60,4 @@ if __name__ == "__main__":
     ) ]
     results = asyncio.run(base.BotBase(ready_pages, True).run())
 
-
     print(results)
