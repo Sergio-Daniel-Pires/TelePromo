@@ -222,7 +222,7 @@ class Monitoring ():
         brand = offer["brand"]
         category = offer["category"]
         price = offer["price"]
-        old_price = offer["old_price"]
+        original_price = offer["original_price"]
         name = offer["name"].replace("\n", " ")
 
         try:
@@ -234,18 +234,23 @@ class Monitoring ():
 
             tags = product_obj.tags
 
-            if not isinstance(price, (float, int)) or not isinstance(old_price, (float, int)):
-                self.metrics_collector.handle_error("parse_price_to_float")
-                logging.error("Mismatch price error (not valid float), skipping...")
-                logging.error(traceback.format_exc())
-                raise TypeError(f"{brand} Product: {name} - {price} has invalid price value ({type(price)})")
+            for key_name, value in (("price", price), ("original_price", original_price)):
+                if not isinstance(value, (float, int)):
+                    self.metrics_collector.handle_error("parse_price_to_float")
+                    logging.error("Mismatch price error (not valid float), skipping...")
+                    logging.error(traceback.format_exc())
+                    logging.warning(offer)
+                    raise TypeError(
+                        f"{brand} Product: '{name}' - '{original_price}'"
+                        f"has invalid {key_name} value ({type(value)})"
+                    )
 
             is_promo = offer.get("promo", None)
-            if is_promo is None and (price < old_price):
+            if is_promo is None and (price < original_price):
                 is_promo = True
 
             new_price = Price(
-                price=price, old_price=old_price, is_promo=is_promo,
+                price=price, original_price=original_price, is_promo=is_promo,
                 is_affiliate=offer.get("is_affiliate", None), url=offer["url"], brand=brand,
                 img=offer["img"], extras=offer.get("extras", {}), details=offer["details"]
             )

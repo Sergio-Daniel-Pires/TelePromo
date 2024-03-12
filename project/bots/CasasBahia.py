@@ -108,7 +108,7 @@ class CasasBahia (base.BotRunner):
         for offer, price_obj in zip(products, prices["PrecoProdutos"]):
             price_obj = price_obj["PrecoVenda"]
             offer["price"] = price_obj["Preco"]
-            offer["old_price"] = price_obj["PrecoDe"]
+            offer["original_price"] = price_obj["PrecoDe"]
             offer["extras"]["installment"] = price_obj["Parcelamento"]
 
             results.append(

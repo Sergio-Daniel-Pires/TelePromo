@@ -54,7 +54,7 @@ class Price:
     _id: bson.ObjectId
     brand: str
     price: float
-    old_price: float
+    original_price: float
     url: str
     img: str
     extras: dict[str, Any]
@@ -64,7 +64,7 @@ class Price:
     users_sent: dict[int, int]
 
     def __init__ (
-        self, price: float, old_price: float, is_promo: bool, is_affiliate: bool,
+        self, price: float, original_price: float, is_promo: bool, is_affiliate: bool,
         url: str, brand: str, img: str, extras: dict[str, Any] = None, date = None,
         users_sent: dict[int, int] = None, _id: bson.ObjectId = None, details = None
     ) -> None:
@@ -74,7 +74,7 @@ class Price:
         self._id = _id
         self.date = date if date is not None else int(time.time() * 1000)
         self.price = price
-        self.old_price = old_price
+        self.original_price = original_price
         self.is_promo = is_promo
         self.is_affiliate = is_affiliate
         self.url = url
