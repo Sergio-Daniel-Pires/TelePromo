@@ -335,7 +335,8 @@ class TelegramBot ():
 
     async def save_price (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         product_ask = (
-            "(APENAS NUMEROS, Digite '0' se não quiser limitar o preco):\n"
+            "APENAS NUMEROS SEM VIRGULA. Digite '0' se não quiser limitar o preco\n"
+            "(Limites de valores, exemplo: 200-1000 vai pegar de R$ 200 até R$ 1000)\n"
         )
 
         keyboard = None
@@ -345,7 +346,7 @@ class TelegramBot ():
             user_id = update.message.from_user["id"]
             user_name = update.message.from_user["first_name"]
             product = update.message.text
-            tag_list, adjectives = await self.vectorizer.extract_tags(product, "")
+            tag_list = await self.vectorizer.extract_tags(product, "")
             tag_mapping = {
                 ELETRONICS: "eletronics", CLOTHES: "clothes", HOUSE: "house",
                 PETS: "pets", BOOKS: "books", OTHERS: "others"
@@ -353,12 +354,12 @@ class TelegramBot ():
             category = tag_mapping[context.user_data[TYPING]]
 
             status, message = self.database.insert_new_user_wish(
-                user_id, user_name, tag_list, product, category, adjectives=adjectives
+                user_id, user_name, tag_list, product, category
             )
 
             if status:
                 product_ask = (
-                    "Adicionado! Deseja definir um valor maximo para o produto?:\n"
+                    "Adicionado! Deseja definir valores maximos para o produto?:\n"
                     + product_ask
                 )
                 button = InlineKeyboardButton(text="Pular", callback_data=str(SKIP))
@@ -396,6 +397,7 @@ class TelegramBot ():
 
     async def save_product (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         index = context.user_data.get(INDEX)
+
         if index is not None:
             end_text = "Editado!"
             button = InlineKeyboardButton(text="Voltar", callback_data=str(RETURN))
@@ -422,16 +424,28 @@ class TelegramBot ():
             status_to_return = ANOTHER_PRODUCT
 
         if update.message is not None:
-            value = update.message.text
+            values = update.message.text
+            lower_price, max_price = ( None, None )
+            hifens = values.count("-")
+
             user_id = update.message.from_user["id"]
 
-            if not value.isnumeric():
+            if not all(v.isnumeric() for v in values) or hifens > 1:
                 end_text = "Valor invalido, tentar novamente?"
 
             else:
-                self.database.update_wish_by_index(user_id, index, price=value)
+                if hifens:
+                    lower_price, max_price = tuple(map(int, values.split()))
+
+                else:
+                    max_price = values
+
+                self.database.update_wish_by_index(
+                    user_id, index, lower_price=lower_price, max_price=max_price
+                )
 
         option = update.callback_query
+
         if option and option.data == SKIP:
             await update.callback_query.edit_message_text(text=end_text, reply_markup=keyboard)
 
@@ -616,9 +630,7 @@ class ImportantJobs:
 
     def __init__(self, redis_client: Redis) -> None:
         self.redis_client = redis_client
-        self.repeating_jobs = [
-            "get_messages_and_send"
-        ]
+        self.repeating_jobs = [ "get_messages_and_send" ]
 
     # Tirar daqui depois "ah mas faz agr e bota em ingles"
     # Nao, meu codigo minhas regras.
@@ -654,9 +666,5 @@ class ImportantJobs:
     async def reset_default_promo (self, context: ContextTypes.DEFAULT_TYPE):
         self.redis_client.set("sent_first_promo", 1)
 
-    async def kill_container (self, context: ContextTypes.DEFAULT_TYPE):
-        for job_name in self.repeating_jobs:
-            for job in context.application.job_queue.get_jobs_by_name(job_name):
-                job.schedule_removal()
-
-        context.application.stop_running()
+    async def reset_daily_promos (self):
+        self.redis_client.set("reset_daily", 1)

@@ -34,10 +34,10 @@ class Nike (base.BotRunner):
                     pid = product["id"]
                     img = f"https://imgnike-a.akamaihd.net/480x480/{pid}.jpg"
                     price = product["price"]
-                    old_price = product["oldPrice"]
+                    original_price = product["oldPrice"]
                     url = "https://www.nike.com.br" + product["url"]
 
-                    results.append(self.new_product(name, price, url, details, old_price, img))
+                    results.append(self.new_product(name, price, url, details, original_price, img))
 
         return results
 

@@ -8,8 +8,6 @@ from typing import Any
 import requests
 from playwright.async_api import Page
 
-from project.bots.base import UserMessages
-
 try:
     from project.bots import base
 except Exception:
@@ -112,10 +110,10 @@ class Cobasi (base.BotRunner):
                     details = ", ".join(sku["specs"]["default"][0] for sku in offer["skus"])
 
                     price = offer["price"]
-                    old_price = offer["oldPrice"]
+                    original_price = offer["oldPrice"]
                     extras["sub_price"] = self.format_money(offer["subscriptionPrice"])
 
-                    if None in (price, old_price):
+                    if None in (price, original_price):
                         continue
 
                     # BUG Fixed to url without https://
@@ -123,7 +121,7 @@ class Cobasi (base.BotRunner):
                     url = "https:" + offer["url"]
 
                     results.append(
-                        self.new_product(name, price, url, details, old_price, img, extras)
+                        self.new_product(name, price, url, details, original_price, img, extras)
                     )
 
             return results

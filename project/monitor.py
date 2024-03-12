@@ -107,27 +107,21 @@ class Monitoring ():
         :param price: float price
         """
         # Verificações diarias pra economizar em querys do MongoDB
-        if category not in self.today_offers:
-            self.today_offers[category] = {}
-
-        if brand not in self.today_offers[category]:
-            self.today_offers[category][brand] = []
-
-        bot_offers = self.today_offers[category][brand]
+        if brand not in self.today_offers:
+            self.today_offers[brand] = []
 
         # Get only relevant names from raw name
-        tags, adjectives = await self.vectorizer.extract_tags(offer_name, category)
+        tags = await self.vectorizer.extract_tags(offer_name, category)
 
         if len(tags) == 0:
             return None, None, None
 
         product_obj = Product(
-            raw_name=offer_name, category=category, tags=tags, adjectives=adjectives,
-            price=price, history=[]
+            raw_name=offer_name, category=category, tags=tags, price=price, history=[]
         )
         new_product = False
 
-        if product_obj not in bot_offers:
+        if product_obj not in self.today_offers[brand]:
             new_product, product_dict = self.database.find_or_insert_product(product_obj)
 
             if new_product:
@@ -135,12 +129,12 @@ class Monitoring ():
 
             # New product
             product_obj = Product(**product_dict)
-            bot_offers.append(product_obj)
-            index = len(bot_offers) - 1
+            self.today_offers[brand].append(product_obj)
+            index = len(self.today_offers[brand]) - 1
 
         else:
-            index = bot_offers.index(product_obj)
-            product_obj = bot_offers[index]
+            index = self.today_offers[brand].index(product_obj)
+            product_obj = self.today_offers[brand][index]
 
         return new_product, product_obj, index
 
@@ -158,7 +152,7 @@ class Monitoring ():
 
             user_tags = set(wish["tags"])
 
-            needed = 0.75              # Need at least half of tags to send
+            needed = 0.75              # Need at least 75% matching tags to send
             if len(user_tags) == 2:    # Special case, only two tags
                 needed = 1.0
 
@@ -181,19 +175,21 @@ class Monitoring ():
                 user_wish = Wish(**users_wish[user_id])
 
                 if (
-                    (product_obj.price > user_wish.price * 1.03 and user_wish.price != 0) or
-                    len(set(user_wish.blacklist).intersection(set(product_obj.tags))) > 0
+                    (product_obj.price < user_wish.max * 1.03 or user_wish.max == 0) and
+                    product_obj.price > user_wish.min and
+                    len(set(user_wish.blacklist).intersection(set(product_obj.tags))) == 0
                 ):
+                    # Add to background queue
+                    beautiful_msg = FormatPromoMessage.parse_msg(price_obj, product_obj, prct_equal)
+                    self.redis_client.lpush(
+                        "msgs_to_send", json.dumps({ "chat_id": user_id, "message": beautiful_msg })
+                    )
+
+                    self.update_sents(1, product_obj, price_idx, product_idx, brand, user_id)
+
+                else:
                     self.update_sents(0, product_obj, price_idx, product_idx, brand, user_id)
                     continue
-
-                # Add to background queue
-                beautiful_msg = FormatPromoMessage.parse_msg(price_obj, product_obj, prct_equal)
-                self.redis_client.lpush(
-                    "msgs_to_send", json.dumps({ "chat_id": user_id, "message": beautiful_msg })
-                )
-
-                self.update_sents(1, product_obj, price_idx, product_idx, brand, user_id)
 
     def update_sents (
         self, has_sent: bool, product_obj: Product, price_idx, product_idx, brand, user_id
@@ -201,8 +197,8 @@ class Monitoring ():
         self.database.add_new_user_in_price_sent(product_obj._id, price_idx, user_id, has_sent)
 
         # Faster way to acess sent history dict
-        if product_obj.category in self.today_offers:
-            history = self.today_offers[product_obj.category][brand][product_idx].history
+        if brand in self.today_offers:
+            history = self.today_offers[brand][product_idx].history
             history[price_idx]["users_sent"][user_id] = has_sent
 
         if has_sent:
@@ -226,7 +222,7 @@ class Monitoring ():
         brand = offer["brand"]
         category = offer["category"]
         price = offer["price"]
-        old_price = offer["old_price"]
+        original_price = offer["original_price"]
         name = offer["name"].replace("\n", " ")
 
         try:
@@ -238,18 +234,23 @@ class Monitoring ():
 
             tags = product_obj.tags
 
-            if not isinstance(price, (float, int)) or not isinstance(old_price, (float, int)):
-                self.metrics_collector.handle_error("parse_price_to_float")
-                logging.error("Mismatch price error (not valid float), skipping...")
-                logging.error(traceback.format_exc())
-                raise TypeError(f"{brand} Product: {name} - {price} has invalid price value ({type(price)})")
+            for key_name, value in (("price", price), ("original_price", original_price)):
+                if not isinstance(value, (float, int)):
+                    self.metrics_collector.handle_error("parse_price_to_float")
+                    logging.error("Mismatch price error (not valid float), skipping...")
+                    logging.error(traceback.format_exc())
+                    logging.warning(offer)
+                    raise TypeError(
+                        f"{brand} Product: '{name}' - '{original_price}'"
+                        f"has invalid {key_name} value ({type(value)})"
+                    )
 
             is_promo = offer.get("promo", None)
-            if is_promo is None and (old_price > price):
+            if is_promo is None and (price < original_price):
                 is_promo = True
 
             new_price = Price(
-                price=price, old_price=old_price, is_promo=is_promo,
+                price=price, original_price=original_price, is_promo=is_promo,
                 is_affiliate=offer.get("is_affiliate", None), url=offer["url"], brand=brand,
                 img=offer["img"], extras=offer.get("extras", {}), details=offer["details"]
             )
@@ -260,9 +261,9 @@ class Monitoring ():
 
             if (
                 is_new_price or
-                price_obj.__dict__ not in self.today_offers[category][brand][product_index].history
+                price_obj.__dict__ not in self.today_offers[brand][product_index].history
             ):
-                self.today_offers[category][brand][product_index].history.append(
+                self.today_offers[brand][product_index].history.append(
                     price_obj.__dict__
                 )
                 self.metrics_collector.handle_site_results(brand, "new_price")
@@ -290,6 +291,11 @@ class Monitoring ():
             logging.error(traceback.print_exc())
 
     async def continuous_verify_price (self):
+        # Reset daily offers
+        if self.redis_client.get("reset_daily"):
+            self.redis_client.set("reset_daily", 0)
+            self.today_offers = {}
+
         links_cursor = self.database.get_links()
 
         logging.warning("Verifying bots that need to run...")

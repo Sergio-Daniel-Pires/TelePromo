@@ -38,10 +38,10 @@ class Terabyte (base.BotRunner):
                 await (await product.query_selector(".prod-new-price")).inner_text()
             ).split(" ")[1]
 
-            obj_old_price = (await (await product.query_selector(".prod-old-price")).inner_text())
-            old_price = price
-            if obj_old_price:
-                old_price = obj_old_price.split(" ")[2]
+            obj_original_price = (await (await product.query_selector(".prod-old-price")).inner_text())
+            original_price = price
+            if obj_original_price:
+                original_price = obj_original_price.split(" ")[2]
 
             url = await (
                 await product.query_selector(".commerce_columns_item_image")
@@ -49,7 +49,7 @@ class Terabyte (base.BotRunner):
 
             img = await (await product.query_selector("img")).get_attribute("src")
 
-            results.append(self.new_product(name, price, url, details, old_price, img))
+            results.append(self.new_product(name, price, url, details, original_price, img))
 
         return results
 

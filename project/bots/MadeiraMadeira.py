@@ -37,14 +37,14 @@ class MadeiraMadeira (base.BotRunner):
                 "span.cav--c-gNPphv-hyvuql-weight-bold"
             )).inner_text()
 
-            old_price = price
+            original_price = price
 
-            obj_old_price = await product_obj.query_selector(
+            obj_original_price = await product_obj.query_selector(
                 "span.cav--c-gNPphv.cav--c-gNPphv-iihFNG-size-bodyXSmall"
                 ".cav--c-gNPphv-ijymXNu-css"
             )
-            if obj_old_price:
-                old_price = (await obj_old_price.inner_text())[3:]
+            if obj_original_price:
+                original_price = (await obj_original_price.inner_text())[3:]
 
             url = await product_obj.get_attribute("href")
             img = await (
@@ -52,7 +52,7 @@ class MadeiraMadeira (base.BotRunner):
             ).get_attribute("src")
 
             results.append(
-                self.new_product(name, price, url, details, old_price, img)
+                self.new_product(name, price, url, details, original_price, img)
             )
 
         return results
@@ -88,14 +88,14 @@ class MadeiraMadeira (base.BotRunner):
                         details = product["descricao"]
 
                         price = product["preco_por"]
-                        old_price = product["preco_de"]
+                        original_price = product["preco_de"]
 
                         img = product["imagens"][0]
 
                         url = f"https://www.madeiramadeira.com.br" + product["url"]
 
                         results.append(
-                            self.new_product(name, price, url, details, old_price, img, extras)
+                            self.new_product(name, price, url, details, original_price, img, extras)
                         )
 
             except Exception as exc:

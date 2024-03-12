@@ -103,13 +103,13 @@ class Kabum (base.BotRunner):
             name, details = name_and_details.split(",", 1)
 
             price = await (await product_obj.query_selector(".priceCard")).inner_text()
-            old_price = await (await product_obj.query_selector(".oldPriceCard")).inner_text()
+            original_price = await (await product_obj.query_selector(".oldPriceCard")).inner_text()
 
             url = await (await product_obj.query_selector(".productLink")).get_attribute("href")
             img = await (await product_obj.query_selector(".imageCard")).get_attribute("src")
 
             results.append(
-                self.new_product(name, price, url, details, old_price, img)
+                self.new_product(name, price, url, details, original_price, img)
             )
 
         return results
@@ -145,12 +145,12 @@ class Kabum (base.BotRunner):
                         name = details = name_and_details
 
                     price = offer["vlr_oferta"]
-                    old_price = offer["vlr_normal"]
+                    original_price = offer["vlr_normal"]
 
                     if price is None:
-                        price = old_price
+                        price = original_price
 
-                    if None in (price, old_price):
+                    if None in (price, original_price):
                         continue
 
                     img = offer["imagem"]
@@ -165,7 +165,7 @@ class Kabum (base.BotRunner):
                     )
 
                     results.append(
-                        self.new_product(name, price, url, details, old_price, img, extras)
+                        self.new_product(name, price, url, details, original_price, img, extras)
                     )
 
             except Exception as exc:

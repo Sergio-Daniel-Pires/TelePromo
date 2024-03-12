@@ -84,7 +84,7 @@ class Adidas (base.BotRunner):
             name = product["altText"]
             img = product["image"]["src"]
             price = product["salePrice"]
-            old_price = product["price"]
+            original_price = product["price"]
 
             # Extras
             extras["sizes"] = ", ".join(
@@ -94,7 +94,7 @@ class Adidas (base.BotRunner):
             extras["shipping"] = shipping if "frete" in shipping.lower() else "Consulte o frete!"
 
             results.append(
-                self.new_product(name, price, url, name, old_price, img, extras)
+                self.new_product(name, price, url, name, original_price, img, extras)
             )
 
         return results

@@ -62,7 +62,7 @@ class Shein (base.BotRunner):
             img = "https:" + offer["goods_img"]
 
             price = offer["salePrice"]["amount"]
-            old_price = offer["retailPrice"]["amount"]
+            original_price = offer["retailPrice"]["amount"]
 
             url = build_url(offer["goods_url_name"], offer["goods_id"], offer["cat_id"])
             shipping = offer["pretreatInfo"]["mallTagsInfo"]["mall_name"]
@@ -76,7 +76,7 @@ class Shein (base.BotRunner):
             extras = { "shipping": shipping }
 
             results.append(
-                self.new_product(name, price, url, details, old_price, img, extras)
+                self.new_product(name, price, url, details, original_price, img, extras)
             )
 
         return results

@@ -56,14 +56,14 @@ class Magalu (base.BotRunner):
             details = product["description"]
 
             price = product["price"]["bestPrice"]
-            old_price = product["price"]["price"]
+            original_price = product["price"]["price"]
 
             img = product["image"].format(w=400, h=400)
 
             url = f"https://www.magazineluiza.com.br/" + product["path"]
 
             results.append(
-                self.new_product(name, price, url, details, old_price, img, extras)
+                self.new_product(name, price, url, details, original_price, img, extras)
             )
 
         return results

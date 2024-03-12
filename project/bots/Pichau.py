@@ -110,7 +110,7 @@ class Pichau (base.BotRunner):
                     extras["condition"] = f"\nusado - {product['openbox_state']}\n"
 
                 price = product["pichau_prices"]["avista"]
-                old_price = product["pichau_prices"]["base_price"]
+                original_price = product["pichau_prices"]["base_price"]
 
                 installment = product["pichau_prices"]["final_price"]
                 max_installment = product["pichau_prices"]["max_installments"]
@@ -129,7 +129,7 @@ class Pichau (base.BotRunner):
                         extras["shipping"] = product_labels[0]["label"]
 
                 results.append(
-                    self.new_product(name, price, url, details, old_price, img, extras)
+                    self.new_product(name, price, url, details, original_price, img, extras)
                 )
 
         return results

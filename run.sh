@@ -32,14 +32,13 @@ CHAT_BOT_PID=$!
 python3 web_scrapper.py &
 WEB_SCRAPPER_PID=$!
 
-# Define uma função para terminar ambos os processos
+# Function to kill both processes
 cleanup() {
     echo "Terminating both processes..."
     kill $CHAT_BOT_PID $WEB_SCRAPPER_PID
 }
 
-# Captura os sinais de saída para limpeza
+# Trap function to CTRL + C
 trap cleanup EXIT SIGINT SIGTERM
 
-# Espera ambos os processos terminarem
 wait $CHAT_BOT_PID $WEB_SCRAPPER_PID

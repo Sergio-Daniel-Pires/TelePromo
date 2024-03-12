@@ -89,13 +89,12 @@ class Aliexpress (base.BotRunner):
             prices = product_obj["prices"]
 
             price = prices["salePrice"]["minPrice"]
-            old_price = price
+            original_price = price
 
-            original_price = prices.get("originalPrice", None)
-            if original_price:
-                old_price = original_price["minPrice"]
+            if prices.get("originalPrice", None):
+                original_price = prices["originalPrice"]["minPrice"]
 
-            results.append(self.new_product(name, price, url, details, old_price, img, extras))
+            results.append(self.new_product(name, price, url, details, original_price, img, extras))
 
         return results
 

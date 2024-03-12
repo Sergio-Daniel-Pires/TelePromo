@@ -108,11 +108,11 @@ class BotRunner(ABC):
 
     def new_product (
         self, name: str, price: str, url: str, details: str = None,
-        old_price: str = None, img: str = None, extras: dict[str, Any] = {}
+        original_price: str = None, img: str = None, extras: dict[str, Any] = {}
     ):
         product = {
             "brand": self.__class__.__name__, "category": self.category, "name": name,
-            "details": details, "price": price, "old_price": old_price, "url": url,
+            "details": details, "price": price, "original_price": original_price, "url": url,
             "img": img, "extras": extras
         }
 
@@ -129,7 +129,7 @@ class BotRunner(ABC):
             if product[key]:
                 product[key] = product[key].strip()
 
-        for key in ( "price", "old_price" ):
+        for key in ( "price", "original_price" ):
             product[key] = self.format_money(product[key])
 
         for key in ( "img", "url" ):
