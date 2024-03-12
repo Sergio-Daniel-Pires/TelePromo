@@ -6,6 +6,18 @@ import bson
 from project.utils import SECONDS_IN_DAY, brand_to_bot
 
 
+class Wish:
+    max: int
+    min: int
+    blacklist: list[str]
+
+    def __init__(
+        self, max: int, min: int = 0, blacklist: list[str] = []
+    ) -> None:
+        self.max = max
+        self.min = min
+        self.blacklist = blacklist
+
 class User:
     """
     User object to verify list of wishes and if is premium
@@ -13,7 +25,7 @@ class User:
     _id: str
     name: str
     max_wishes: int
-    wish_list: dict[str, str]
+    wish_list: list[Wish]
     premium: bool
 
     def __init__ (self, user_id: str, user_name: str, **kwargs) -> None:
@@ -23,16 +35,6 @@ class User:
         self.max_wishes = kwargs.get("max_wishes", 10)
         self.premium = kwargs.get("premium", False)
 
-class Wish:
-    price: float | int
-    blacklist: list[str]
-
-    def __init__(
-        self, price: float | int, blacklist: list[str] = []
-    ) -> None:
-        self.price = price
-        self.blacklist = blacklist
-
 class WishGroup:
     """
     Wish object to use in PyMongo
@@ -40,13 +42,13 @@ class WishGroup:
     _id: bson.ObjectId
     tags: list[str]
     users: dict[int: Wish]
-    num_wishs: int
+    num_wishes: int
 
     def __init__ (self, **kwargs) -> None:
         self._id = bson.ObjectId()
         self.tags = kwargs.get("tags")
         self.users = kwargs.get("users", {})
-        self.num_wishs = 0
+        self.num_wishes = 0
 
 class Price:
     _id: bson.ObjectId
@@ -100,13 +102,12 @@ class Product:
     _id: bson.ObjectId
     raw_name: str
     tags: list
-    adjectives: list
     category: str
     price: float
     history: list[Price]
 
     def __init__ (
-        self, raw_name: str, tags: list, adjectives: list, category: str, price: float,
+        self, raw_name: str, tags: list[str], category: str, price: float,
         history: list[Price] = None, _id: bson.ObjectId = None
     ) -> None:
         if not isinstance(_id, bson.ObjectId):
@@ -115,7 +116,6 @@ class Product:
         self._id = _id
         self.raw_name = raw_name
         self.tags = tags
-        self.adjectives = adjectives
         self.category = category
         self.price = price
         self.history = history if history is not None else []
