@@ -435,7 +435,7 @@ class TelegramBot ():
 
             else:
                 if hifens:
-                    lower_price, max_price = tuple(map(int, values.split()))
+                    lower_price, max_price = tuple(map(int, values.split("-")))
 
                 else:
                     max_price = values
