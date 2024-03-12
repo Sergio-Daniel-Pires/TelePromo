@@ -1,15 +1,15 @@
 import re
 
-from project.bots import (Adidas, Aliexpress, Cobasi, EstanteVirtual, Kabum,
-                          MadeiraMadeira, Magalu, Nike, Pichau, Shein,
-                          Terabyte)
+from project.bots import (Adidas, Aliexpress, CasasBahia, Cobasi,
+                          EstanteVirtual, Kabum, MadeiraMadeira, Magalu, Nike,
+                          Pichau, Shein, Terabyte)
 
 brand_to_bot = {
     "Adidas": Adidas.Adidas, "Aliexpress": Aliexpress.Aliexpress,
     "Cobasi": Cobasi.Cobasi, "EstanteVirtual": EstanteVirtual.EstanteVirtual,
     "Kabum": Kabum.Kabum, "MadeiraMadeira": MadeiraMadeira.MadeiraMadeira,
     "Nike": Nike.Nike, "Pichau": Pichau.Pichau, "Shein": Shein.Shein,
-    "Terabyte": Terabyte.Terabyte, "Magalu": Magalu.Magalu
+    "Terabyte": Terabyte.Terabyte, "Magalu": Magalu.Magalu, "CasasBahia": CasasBahia.CasasBahia
 }
 
 DAYS_IN_YEAR = 365
@@ -42,7 +42,8 @@ STOP_WORDS = (
     "seriamos", "seriam", "tenho", "tem", "temos", "tem", "tinha", "tinhamos", "tinham",
     "tive", "teve", "tivemos", "tiveram", "tivera", "tiveramos", "tenha", "tenhamos",
     "tenham", "tivesse", "tivessemos", "tivessem", "tiver", "tivermos", "tiverem", "terei",
-    "tera", "teremos", "terao", "teria", "teriamos", "teriam"
+    "tera", "teremos", "terao", "teria", "teriamos", "teriam",
+    ".", ",", "'", '"', ":", ";", "\\", "/", "[", "]", "!"
 )
 
 
