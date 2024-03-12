@@ -430,7 +430,7 @@ class TelegramBot ():
 
             user_id = update.message.from_user["id"]
 
-            if not all(v.isnumeric() for v in values) or hifens > 1:
+            if not all(v.isnumeric() for v in values.split("-")) or hifens > 1:
                 end_text = "Valor invalido, tentar novamente?"
 
             else:
@@ -504,6 +504,7 @@ class TelegramBot ():
         product_text = (
             f"Produto: {wish_obj['name']}\n"
             f"Maximo: {wish_obj['max']}\n"
+            f"Minimo: {wish_obj['min']}\n"
             f"Blacklist: {wish_obj['blacklist']}\n"
         )
 
