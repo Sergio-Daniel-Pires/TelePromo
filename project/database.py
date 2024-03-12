@@ -119,10 +119,6 @@ class Database:
         """
         Insert product if was the first time tags appears
         """
-        if product.category in ( "eletronics", "books" ) and len(product.adjectives) != 0:
-            product.tags = product.tags + product.adjectives
-            product.adjectives = []
-
         db_product = self.database["products"].find_one({ "tags": { "$all": product.tags } })
         is_new_product = False
 
@@ -154,27 +150,6 @@ class Database:
 
         self.database["products"].update_one(
             { "tags": { "$all": tags } }, { "$push": { "history": new_price } }
-        )
-
-    def find_all_without_adjectives (self) -> pymongo.CursorType:
-        """
-        Get all products WITHOUT adjetctives
-        """
-        all_finds = self.database["products"].find({"adjectives": {"$exists": False}})
-        return all_finds
-
-    def set_adjectives (self, old_tags: list, new_tags: list, adjectives: list):
-        """
-        Convert a product with tags to tags + adjectives
-        """
-        self.database["products"].update_one(
-            { "tags": { "$all": old_tags } },
-            {
-                "$set": {
-                    "adjectives": adjectives,
-                    "tags": new_tags
-                }
-            }
         )
 
     # User Funcs
@@ -229,36 +204,33 @@ class Database:
 
     def insert_new_user_wish (
         self, user_id: str, user_name: str, tag_list: list[str], product: str,
-        category: str, max_price: int = 0, adjectives: list[str] = None
+        category: str, max_price: int = 0, min_price: int = 0
     ) -> tuple[bool, str]:
         """
         Verify and insert a new user wish into User model.
         Verifications: Max 15 words, min 1 tag, not repeated wish, max 10 wish per user.
         """
-        adjectives = adjectives if adjectives is not None else []
         _, user = self.find_or_create_user(user_id, user_name)
         user_wish = user.get("wish_list")
         max_wishes = user.get("max_wishes", 10)
         repeated = self.verify_repeated_wish(user_id, tag_list, wish_list=user_wish)
 
-        # Adjectives don't work for eletronics and books
-        if category in ( "eletronics", "books" ) and len(adjectives) != 0:
-            tag_list += adjectives
-            adjectives = []
-
         if len(tag_list) >= 15:
-            (False, "Nao pode ter mais que 15 palavras.")
+            ( False, "Nao pode ter mais que 15 palavras." )
 
         elif len(tag_list) == 0:
-            (False, "Poucas palavras ou invalidas.")
+            ( False, "Poucas palavras ou invalidas." )
 
         elif repeated:
-            return (False, f"Usuário já tem um alerta igual: {repeated}")
+            return ( False, f"Usuário já tem um alerta igual: {repeated}" )
 
         if len(user_wish) >= max_wishes and not user.get("premium", False):
-            return (False, f"Usuário só pode ter até {max_wishes} wishes")
+            return ( False, f"Usuário só pode ter até {max_wishes} wishes" )
 
-        wish_id = self.new_wish(tags=tag_list, user=user_id, adjectives=adjectives)
+        if (min_price > max_price and max_price != 0):
+            return ( False, "Preço minimo não pode ser maior que o máximo!" )
+
+        wish_id = self.new_wish(tags=tag_list, user=user_id)
 
         self.database["users"].update_one(
             { "_id": user_id },
@@ -266,9 +238,9 @@ class Database:
                 "wish_list": {
                     "wish_id": wish_id,
                     "max": max_price,
+                    "min": min_price,
                     "name": product,
                     "tags": tag_list,
-                    "adjectives": adjectives,
                     "category": category,
                     "blacklist": []
                 }
@@ -284,7 +256,8 @@ class Database:
         tags = kwargs.get("tags")
         user_id = kwargs.get("user")
 
-        user_price = kwargs.get("max_price", 0)
+        min_price = kwargs.get("min_price", 0)
+        max_price = kwargs.get("max_price", 0)
         user_bl = kwargs.get("blacklist", [])
 
         wish_obj = self.database["wishes"].find_one_and_update(
@@ -303,20 +276,18 @@ class Database:
         wish_obj = self.database["wishes"].update_one(
             { "_id":  wish_id },
             {
-                "$set": { f"users.{user_id}": Wish(user_price, user_bl).__dict__ },
-                "$inc": { "num_wishs": 1 }
+                "$set": { f"users.{user_id}": Wish(max_price, min_price, user_bl).__dict__ },
+                "$inc": { "num_wishes": 1 }
             }
-        )
 
+        )
         return wish_id
 
     def remove_user_wish (self, user_id: int, index: int):
         """
         Remove user wish from User and WishGroup models
         """
-        user_obj = self.database["users"].find_one(
-            {"_id": user_id}
-        )
+        user_obj = self.database["users"].find_one({ "_id": user_id })
         wish_obj = user_obj["wish_list"][index]
 
         self.database["users"].update_one(
@@ -328,7 +299,7 @@ class Database:
             { "_id": wish_id },
             {
                 "$unset": { f"users.{user_id}": 1},
-                "$inc": { "num_wishs": -1 }
+                "$inc": { "num_wishes": -1 }
             }
         )
 
@@ -341,14 +312,13 @@ class Database:
         )
 
     def update_wish_by_index (
-        self, user_id: int, index: str, price: str = None, blacklist: list[str] = None
+        self, user_id: int, index: str, blacklist: list[str] = None,
+        lower_price: int | str = None, max_price: int | str = None
     ):
         """
         Update wish price or blacklist
         """
-        user_obj = self.database["users"].find_one(
-            { "_id": user_id }
-        )
+        user_obj = self.database["users"].find_one({ "_id": user_id })
         wish_obj = user_obj["wish_list"]
 
         if index == -1:
@@ -357,22 +327,30 @@ class Database:
         wish_obj = wish_obj[index]
         wish_id = wish_obj["wish_id"]
 
-        to_update = {}
-        if price:
-            self.database["users"].update_one(
-                { "_id": user_id }, { "$set": { f"wish_list.{index}.max": int(price) } }
-            )
-            to_update[f"users.{user_id}.price"] = int(price)
+        update_on_wishes = {}
+        update_on_users = {}
+        if max_price:
+            max_price = int(max_price)
+            update_on_users[f"wish_list.{index}.max"] = max_price
+            update_on_wishes[f"users.{user_id}.max"] = max_price
+
+        if lower_price:
+            lower_price = int(lower_price)
+            update_on_users[f"wish_list.{index}.min"] = lower_price
+            update_on_wishes[f"users.{user_id}.min"] = lower_price
 
         if blacklist:
-            self.database["users"].update_one(
-                { "_id": user_id }, { "$set": { f"wish_list.{index}.blacklist": blacklist } }
-            )
-            to_update[f"users.{user_id}.blacklist"] = blacklist
+            update_on_users[f"wish_list.{index}.blacklist"] = blacklist
+            update_on_wishes[f"users.{user_id}.blacklist"] = blacklist
 
         self.database["wishes"].update_one(
             { "_id": wish_id },
-            { "$set": to_update }
+            { "$set": update_on_wishes }
+        )
+
+        self.database["users"].update_one(
+            { "_id": user_id },
+            { "$set": update_on_users }
         )
 
     def verify_or_add_price (
