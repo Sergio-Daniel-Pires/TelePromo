@@ -31,45 +31,37 @@ class Vectorizers ():
             self.categorys.ELETRONICS.value: self.eletronic_model
         }
 
-    async def remove_stop_words (self, normalized_product_name: str) -> tuple[list[str], list[str]]:
+    async def remove_stop_words (self, normalized_product_name: str) -> list[str]:
         """
         Remove stop words from product name
 
         :param normalized_product_name: _description_
         :return: _description_
         """
-        doc = self.trained_model(normalized_product_name)
-
         tags = []
-        adjectives = []
+        doc = normalized_product_name.split(" ")
 
         for token in doc:
-            if token.text in STOP_WORDS:
+            if token in STOP_WORDS:
                 continue
 
-            elif token.pos_ == "ADJ":
-                adjectives.append(token.text)
-
             else:
-                tags.append(token.text)
+                tags.append(token)
 
         tags.sort()
-        adjectives.sort()
 
-        return tags, adjectives
+        return tags
 
-    async def extract_tags (
-        self, raw_product_name: str, category: str
-    ) -> tuple[list[str], list[str]]:
+    async def extract_tags (self, raw_product_name: str, category: str) -> list[str]:
         """Split product name into tokens
 
         :param raw_product_name: Product name as strings
         :param category: Product category, like eletronics
-        :return: product tags and adjectives
+        :return: product tags as str list
         """
         # Cutted function because vectorizer is not good (not enough data)
 
         normalized_product_name = normalize_str(raw_product_name)
-        product_tags, adjectives = await self.remove_stop_words(normalized_product_name)
+        product_tags = await self.remove_stop_words(normalized_product_name)
 
-        return product_tags, adjectives
+        return product_tags
