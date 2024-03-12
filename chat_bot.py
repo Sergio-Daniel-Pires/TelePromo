@@ -50,6 +50,8 @@ def main ():
         important_jobs.reset_daily_promos, important_jobs.ONE_DAY
     )
 
+    telegram_bot.application.run_polling()
+
 
 if __name__ == "__main__":
     main()
