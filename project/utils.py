@@ -46,7 +46,6 @@ STOP_WORDS = (
     ".", ",", "'", '"', ":", ";", "\\", "/", "[", "]", "!"
 )
 
-
 def normalize_str (text: str) -> str:
     """
     Get text and remove accent marks and extra spaces
@@ -61,6 +60,7 @@ def normalize_str (text: str) -> str:
     text = re.sub(r"[õôóòö]", "o", text)
     text = re.sub(r"[ûúùü]", "u", text)
     text = re.sub(r"[ñ]", "n", text)
+    text = re.sub(r"[ç]", "c", text)
     text = re.sub(r",\s+|\.\s+|\s-\s", " ", text)
 
     text = " ".join(text.split(" ")[:20])
