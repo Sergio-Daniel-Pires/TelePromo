@@ -1,12 +1,12 @@
 TelePromo
 ===
 
-Python web scrapper project to search promos a and send to a telegram chat 
+Web scraper project in Python to search in best e-commerces for promotions and send to a telegram chat
 
 ## 📝 Let's Start!
 Try it on [@telepromo](https://t.me/telepromobr_bot) telegram chat bot! Supported sites:
-|            |   |                    |   |
-|------------|---|--------------------|---|
+|            |    |                    |    |
+|------------|----|--------------------|----|
 | Aliexpress | ✅ | Estante Virtual    | ✅ |
 | Shein      | ✅ | Madeira Madeira    | ✅ |
 | Adidas     | ✅ | Terabyte           | ✅ |
@@ -29,9 +29,10 @@ Try it on [@telepromo](https://t.me/telepromobr_bot) telegram chat bot! Supporte
 | Dashboard | Grafana                      |
 
 ## 🚀 Features
-1. Create (and edit) a product wish list
-2. Filters for products wish. Max/Min price and blacklist
-3. List wish
+1. Telegram bot navigation
+2. Create/Edit products wish list
+3. Wish list filters. Like Min/Max price and blacklist
+4. List wish visualization
 
 ## 🔨 Build
 First, clone this repo using SSH:
@@ -57,9 +58,6 @@ bash run.sh
 ```sh
 docker compose up --build 
 ```
-
-Disclaimer:
-This bot is a PROMO HUNTER, it's not a PRICE OBSERVER (There's difference)
 
 ### License
 
