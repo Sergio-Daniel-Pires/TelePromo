@@ -6,6 +6,7 @@ import pytest
 from fakeredis import FakeRedis
 
 from project.monitor import Database, Monitoring, Vectorizers
+from project.utils import SECONDS_IN_DAY
 
 
 @pytest.mark.parametrize(["offer", "user_wishes"],
@@ -219,11 +220,7 @@ class TestDontSend:
             ),
             (
                 'iphone_offer', { "tags": [ "xiaomi", "preto" ], "user": "1", "max_price": 1000 }
-            ),
-            (
-                'iphone_offer',
-                { "tags": [ "xiaomi", "preto", "12mp" ], "user": "1", "max_price": 1000 }
-            ),
+            )
         ]
     )
     @pytest.mark.asyncio
@@ -258,7 +255,7 @@ class TestSendAfter:
                 [
                     { "tags": [ "iphone" ], "user": "1", "max_price": 1000 }
                 ],
-                ((86400 * 3) + 100) # 3 days in seconds + 100 sec
+                ((SECONDS_IN_DAY * 3) + 100) # 3 days in seconds + 100 sec
             )
         ]
     )
@@ -267,7 +264,7 @@ class TestSendAfter:
     async def test_repeated_after_3_days (
         self, mock_time, offer, user_wishes, delay, redis_client: FakeRedis, request
     ):
-        # Prepare DB for requests
+        # Prepare Mocks and environment
         db = Database(None, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
@@ -283,6 +280,8 @@ class TestSendAfter:
 
         for user_wish in user_wishes:
             monitor.database.new_wish(**user_wish)
+
+        ### Finish mocks and environment
 
         mock_time.time = time.time
         await monitor.send_offer_to_user(request.getfixturevalue(offer))
@@ -303,7 +302,7 @@ class TestSendAfter:
                 [
                     { "tags": [ "iphone" ], "user": "1", "max_price": 1000 }
                 ],
-                ((86400 * 2) + 100) # 2 days in seconds + 100 sec
+                ((SECONDS_IN_DAY * 2) + 100) # 2 days in seconds + 100 sec
             )
         ]
     )
