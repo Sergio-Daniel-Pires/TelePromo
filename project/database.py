@@ -1,3 +1,4 @@
+import logging
 import time
 from typing import Any
 
@@ -8,7 +9,8 @@ from pymongo.collection import Collection
 from project import config
 from project.links import LINKS
 from project.metrics_collector import MetricsCollector
-from project.models import Price, Product, User, Wish, WishGroup
+from project.models import Price, Product, User, WishGroup
+from project.structs import CreateUser, CreateWish, CreateWishGroup
 from project.utils import SECONDS_IN_HOUR
 
 
@@ -35,7 +37,8 @@ class Database:
         Create link's entries into database
         """
         for categorys in all_links:
-            dict_all_links = [ link.__dict__ for link in categorys["links"] ]
+            dict_all_links = [ link.to_insert() for link in categorys["links"] ]
+
             self.database["links"].find_one_and_update(
                 { "category": categorys["category"] },
                 { "$set": { "links": dict_all_links } },
@@ -115,41 +118,30 @@ class Database:
 
         return "\n".join(ok + error + no_link + status_desc)
 
-    def find_or_insert_product (self, product: Product) -> tuple[bool, dict[str, Any]]:
+    def find_or_insert_product (self, product_obj: Product) -> tuple[bool, dict[str, Any]]:
         """
         Insert product if was the first time tags appears
         """
-        db_product = self.database["products"].find_one({ "tags": { "$all": product.tags } })
-        is_new_product = False
+        raw_product_obj = self.database["products"].find_one_and_update(
+            { "tags": { "$all": product_obj.tags } },
+            { "$setOnInsert": product_obj.to_insert_data() },
+            upsert=True, return_document=pymongo.ReturnDocument.BEFORE
+        )
 
-        if db_product is None:
-            product = product.__dict__
-            self.database["products"].insert_one(product)
-            is_new_product = True
+        if raw_product_obj is not None:
+            return False, Product.from_dict(raw_product_obj)
 
-        else:
-            product = db_product
+        return True, product_obj
 
-        return is_new_product, product
-
-    def update_product_history (self, tags: list, new_price: dict | Price = None):
+    def update_product_history (self, tags: list, price_obj: Price):
         """
         Update product history into database with new price
         """
-        if type(new_price) is dict:
-            new_price = Price(**new_price)
-
-        price = new_price.price
-
         self.database["products"].update_one(
-            { "tags": {"$all": tags} }, { "$set": { "price": price } }
-        )
-
-        if type(new_price) is Price:
-            new_price = new_price.__dict__
-
-        self.database["products"].update_one(
-            { "tags": { "$all": tags } }, { "$push": { "history": new_price } }
+            { "tags": {"$all": tags} }, {
+                "$set": { "price": price_obj.price },
+                "$push": { "history": price_obj.to_insert_data() }
+            }
         )
 
     # User Funcs
@@ -159,30 +151,24 @@ class Database:
         """
         return self.database["users"].find_one({ "_id": user_id })
 
-    def find_or_create_user (self, user_id: int, user_name: str):
+    def find_or_create_user (self, user_id: int, user_name: str) -> tuple[bool, User]:
         """
         Return an user, if user not exists yet, creates one.
         """
-        new_obj_user = User(
-                            user_id, user_name, wish_list=[], premium=False
-                        ).__dict__
+        new_obj_user = CreateUser(user_id, user_name).to_database_obj()
 
-        user = self.database["users"].find_one_and_update(
+        raw_user = self.database["users"].find_one_and_update(
             { "_id": user_id },
-            {
-                "$setOnInsert": new_obj_user
-            },
+            { "$setOnInsert": new_obj_user.to_insert_data() },
             upsert=True,
             return_document=False
         )
 
-        new_user = False
-        if user is None:
-            user = new_obj_user
-            new_user = True
+        if raw_user is None:
             self.metrics_client.register_new_user()
+            return True, new_obj_user
 
-        return new_user, user
+        return False, User.from_dict(raw_user)
 
     # Wish Funcs
     def user_wishes (self, user_id: int, user_name: str) -> list[WishGroup]:
@@ -211,8 +197,8 @@ class Database:
         Verifications: Max 15 words, min 1 tag, not repeated wish, max 10 wish per user.
         """
         _, user = self.find_or_create_user(user_id, user_name)
-        user_wish = user.get("wish_list")
-        max_wishes = user.get("max_wishes", 10)
+        user_wish = user.wish_list
+        max_wishes = user.max_wishes
         repeated = self.verify_repeated_wish(user_id, tag_list, wish_list=user_wish)
 
         if len(tag_list) >= 15:
@@ -224,7 +210,7 @@ class Database:
         elif repeated:
             return ( False, f"Usuário já tem um alerta igual: {repeated}" )
 
-        if len(user_wish) >= max_wishes and not user.get("premium", False):
+        if len(user_wish) >= max_wishes and not user.premium:
             return ( False, f"Usuário só pode ter até {max_wishes} wishes" )
 
         if (min_price > max_price and max_price != 0):
@@ -247,7 +233,7 @@ class Database:
             }}
         )
 
-        return (True, "Adicionado com sucesso!")
+        return ( True, "Adicionado com sucesso!" )
 
     def new_wish (self, **kwargs) -> bson.ObjectId:
         """
@@ -263,32 +249,33 @@ class Database:
         wish_obj = self.database["wishes"].find_one_and_update(
             { "tags": tags },
             {
-                "$setOnInsert": WishGroup(
-                                    tags=tags
-                                ).__dict__
+                "$setOnInsert": CreateWishGroup(tags=tags).to_database_obj().to_insert_data()
             },
-            upsert=True,
-            return_document=True
+            upsert=True, return_document=True
         )
+        wish_obj = WishGroup.from_dict(wish_obj)
+        wish_id = wish_obj._id
 
-        wish_id = wish_obj["_id"]
-
-        wish_obj = self.database["wishes"].update_one(
+        self.database["wishes"].update_one(
             { "_id":  wish_id },
             {
-                "$set": { f"users.{user_id}": Wish(max_price, min_price, user_bl).__dict__ },
+                "$set": {
+                    f"users.{user_id}": CreateWish(
+                        max_price, min_price, user_bl
+                    ).to_database_obj().to_insert_data()
+                },
                 "$inc": { "num_wishes": 1 }
             }
-
         )
+
         return wish_id
 
     def remove_user_wish (self, user_id: int, index: int):
         """
         Remove user wish from User and WishGroup models
         """
-        user_obj = self.database["users"].find_one({ "_id": user_id })
-        wish_obj = user_obj["wish_list"][index]
+        user_obj = User.from_dict(self.database["users"].find_one({ "_id": user_id }))
+        wish_obj = user_obj.wish_list[index]
 
         self.database["users"].update_one(
             { "_id": user_id }, { "$pull": { "wish_list": wish_obj } }
@@ -307,9 +294,7 @@ class Database:
         """
         Find all wishes by tags
         """
-        return self.database["wishes"].find(
-            { "tags": { "$in": tags } }
-        )
+        return self.database["wishes"].find({ "tags": { "$in": tags } })
 
     def update_wish_by_index (
         self, user_id: int, index: str, blacklist: list[str] = None,
@@ -318,17 +303,18 @@ class Database:
         """
         Update wish price or blacklist
         """
-        user_obj = self.database["users"].find_one({ "_id": user_id })
-        wish_obj = user_obj["wish_list"]
+        user_obj = User.from_dict(self.database["users"].find_one({ "_id": user_id }))
+        wish_list = user_obj.wish_list
 
         if index == -1:
-            index = len(wish_obj) - 1
+            index = len(wish_list) - 1
 
         wish_obj = wish_obj[index]
         wish_id = wish_obj["wish_id"]
 
         update_on_wishes = {}
         update_on_users = {}
+
         if max_price:
             max_price = int(max_price)
             update_on_users[f"wish_list.{index}.max"] = max_price
@@ -364,17 +350,16 @@ class Database:
         # if Price not in history, are a new price
         try:
             price_index = history.index(new_price)
-            is_new_price = False
+            return False, history[price_index], price_index
 
-        except:
-            is_new_price = True
-
-        if is_new_price:
+        except ValueError:
             self.update_product_history(tags, new_price)
-            return is_new_price, new_price, len(history)
+            product_obj.history.append(new_price)
+            return True, new_price, len(history)
 
-        else:
-            return is_new_price, history[price_index], price_index
+        except Exception as exc:
+            logging.error(f"Error {exc} for {tags}: {new_price}")
+            raise exc
 
     def add_new_user_in_price_sent (
         self, product_id: bson.ObjectId, price_idx: int, user_id: int, result: bool

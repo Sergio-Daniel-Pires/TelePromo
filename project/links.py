@@ -1,6 +1,6 @@
 import time
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 
 @dataclass
@@ -19,6 +19,9 @@ class Link:
     def __post_init__ (self):
         self.repeat = self.base_repeat
         self.last = int(time.time())
+
+    def to_insert (self) -> dict[str, Any]:
+        return self.__dict__
 
 LINKS = [
     {
