@@ -1,124 +1,106 @@
+import dataclasses as dc
 import time
-from typing import Any
+from typing import Any, Self
 
 import bson
 
 from project.utils import SECONDS_IN_DAY, brand_to_bot
 
 
-class Wish:
-    max: int
-    min: int
-    blacklist: list[str]
+class DatabaseObject():
+    def to_insert_data (self) -> dict[str, Any]:
+        return self.__dict__
 
-    def __init__(
-        self, max: int, min: int = 0, blacklist: list[str] = []
-    ) -> None:
-        self.max = max
-        self.min = min
-        self.blacklist = blacklist
+    @classmethod
+    def from_dict (cls, data: dict[str, Any]) -> Self:
+        if not isinstance(data, dict):
+            raise ValueError(f"Param data need to be an mapping, not {type(data)}")
 
-class User:
+        return cls(**data)
+
+@dc.dataclass()
+class Wish(DatabaseObject):
+    max: int  = dc.field(default=None)
+    min: int  = dc.field(default=None)
+    blacklist: list[str] = dc.field(default=None)
+
+@dc.dataclass()
+class User(DatabaseObject):
     """
     User object to verify list of wishes and if is premium
     """
-    _id: str
-    name: str
-    max_wishes: int
-    wish_list: list[Wish]
-    premium: bool
+    _id: str = dc.field(default=None)
+    name: str  = dc.field(default=None)
+    max_wishes: int  = dc.field(default=None)
+    wish_list: list[Wish] = dc.field(default=None)
+    premium: bool = dc.field(default=None)
 
-    def __init__ (self, user_id: str, user_name: str, **kwargs) -> None:
-        self._id = user_id
-        self.name = user_name
-        self.wish_list = kwargs.get("wish_list", [])
-        self.max_wishes = kwargs.get("max_wishes", 10)
-        self.premium = kwargs.get("premium", False)
+    def __post_init__ (self):
+        """
+        Converts nested fields
+        """
+        if self.wish_list is not None:
+            self.wish_list = [ Wish(wish) for wish in self.wish_list ]
 
-class WishGroup:
+@dc.dataclass()
+class WishGroup(DatabaseObject):
     """
     Wish object to use in PyMongo
     """
-    _id: bson.ObjectId
-    tags: list[str]
-    users: dict[int: Wish]
-    num_wishes: int
+    _id: bson.ObjectId = dc.field(default=None)
+    tags: list[str] = dc.field(default=None)
+    users: dict[int: Wish] = dc.field(default=None)
+    num_wishes: int  = dc.field(default=None)
 
-    def __init__ (self, **kwargs) -> None:
-        self._id = bson.ObjectId()
-        self.tags = kwargs.get("tags")
-        self.users = kwargs.get("users", {})
-        self.num_wishes = 0
+    def __post_init__ (self):
+        if self.users is not None:
+            self.users = { key: Wish(wish) for key, wish in self.users.items() }
 
-class Price:
-    _id: bson.ObjectId
-    brand: str
-    price: float
-    original_price: float
-    url: str
-    img: str
-    extras: dict[str, Any]
-    details: str
-    is_promo: bool
-    is_affiliate: bool
-    users_sent: dict[int, int]
+@dc.dataclass(eq=False)
+class Price(DatabaseObject):
+    date: int = dc.field(default=None)
+    brand: str  = dc.field(default=None)
+    price: float = dc.field(default=None)
+    original_price: float = dc.field(default=None)
+    url: str  = dc.field(default=None)
+    img: str  = dc.field(default=None)
+    extras: dict[str, Any] = dc.field(default=None)
+    details: str  = dc.field(default=None)
+    is_promo: bool = dc.field(default=None)
+    is_affiliate: bool = dc.field(default=None)
+    users_sent: dict[int, int] = dc.field(default=None)
 
-    def __init__ (
-        self, price: float, original_price: float, is_promo: bool, is_affiliate: bool,
-        url: str, brand: str, img: str, extras: dict[str, Any] = None, date = None,
-        users_sent: dict[int, int] = None, _id: bson.ObjectId = None, details = None
-    ) -> None:
-        if not isinstance(_id, bson.ObjectId):
-            _id = bson.ObjectId()
-
-        self._id = _id
-        self.date = date if date is not None else int(time.time() * 1000)
-        self.price = price
-        self.original_price = original_price
-        self.is_promo = is_promo
-        self.is_affiliate = is_affiliate
-        self.url = url
-        self.brand = brand
-        self.img = img
-        self.users_sent = users_sent if users_sent is not None else {}
-
-        self.extras = extras if extras is not None else {}
-
-        self.details = details if details is not None else ""
-
-    def __eq__ (self, __value: object) -> bool:
-        if abs((self.date - __value.date) // 1000) < SECONDS_IN_DAY * 3:
+    def __eq__ (self, __value: Self) -> bool:
+        if self.days_diff(self.date, __value.date):
             if self.price == __value.price:
-                if self.url == __value.url:
-                    if self.brand == __value.brand:
+                if self.brand == __value.brand:
+                    if self.users_sent == __value.users_sent:
                         return True
 
         return False
 
-class Product:
+    @classmethod
+    def days_diff (cls, date1: int, date2: int, qtd_days: int = 3):
+        return abs((date1 - date2) // 1000) < SECONDS_IN_DAY * qtd_days
+
+@dc.dataclass()
+class Product(DatabaseObject):
     """
     Product object to use in PyMongo
     """
-    _id: bson.ObjectId
-    raw_name: str
-    tags: list
-    category: str
-    price: float
-    history: list[Price]
+    _id: bson.ObjectId = dc.field(default=None)
+    raw_name: str  = dc.field(default=None)
+    tags: list  = dc.field(default=None)
+    category: str  = dc.field(default=None)
+    price: float = dc.field(default=None)
+    history: list[Price] = dc.field(default=None)
 
-    def __init__ (
-        self, raw_name: str, tags: list[str], category: str, price: float,
-        history: list[Price] = None, _id: bson.ObjectId = None
-    ) -> None:
-        if not isinstance(_id, bson.ObjectId):
-            _id = bson.ObjectId()
-
-        self._id = _id
-        self.raw_name = raw_name
-        self.tags = tags
-        self.category = category
-        self.price = price
-        self.history = history if history is not None else []
+    def __post_init__ (self):
+        """
+        Converts nested fields
+        """
+        if self.history is not None:
+            self.history = [ Price(price) for price in self.history ]
 
     def get_history (self) -> list[Price]:
         # Removed from list comprehension, 'extras' fault
@@ -129,7 +111,7 @@ class Product:
                 item = raw_item
 
             elif isinstance(raw_item, dict):
-                item = Price(**raw_item)
+                item = Price.from_dict(raw_item)
 
             else:
                 raise TypeError(f"{raw_item} is not a valid Price")
@@ -147,11 +129,27 @@ class Product:
         return sum(values)/len(values)
 
     def __eq__(self, __value: object) -> bool:
-        if self.tags == __value.tags:
-            return True
+        return self.tags == __value.tags
 
-        else:
-            False
+    def query_product (self, max_price: None, min_price: None) -> dict[str, Any]:
+        query = { "tags": { "$in": [ self.tags ] } }
+
+        if max_price or min_price:
+            query["price"] = {}
+
+        if max_price is not None and max_price != 0:
+            query["price"].update({ "$lte": max_price * 1.03 })
+
+        if min_price is not None:
+            query["price"].update({ "gte": max_price * 0.97 })
+
+    def query_price (self, price_obj: Price) -> dict[str, Any]:
+        self.query_product().update({
+            "price.date": {
+                "gte": ( price_obj.date // 1000 ) - SECONDS_IN_DAY,
+                "lte": ( price_obj.date // 1000 ) + SECONDS_IN_DAY,
+            }
+        })
 
 class FormatPromoMessage:
     """
@@ -171,7 +169,7 @@ class FormatPromoMessage:
         # Get custom promo message if needed
         bot_instance = brand_to_bot[price_obj.brand]
         output_msg = bot_instance.promo_message(
-            price_obj.__dict__, product_obj.avarage(), prct_equal, product_obj.raw_name
+            price_obj.to_insert_data(), product_obj.avarage(), prct_equal, product_obj.raw_name
         )
 
         output = cls.escape_msg(output_msg)
@@ -188,3 +186,32 @@ class FormatPromoMessage:
             output = output.replace(char, rf"\{char}")
 
         return output
+
+class LocalCache:
+    cached_products: list[Product]
+    limit_cached_days: int
+
+    def __init__ (self, limit_cached_days: int = 3):
+        self.cached_products = []
+        self.limit_cached_days = limit_cached_days
+
+    def get_product_from_cache (self, ref_product_obj: Product) -> tuple[bool, Product]:
+        """
+        Returns if Product was found in local cache.
+        Remove olds products while searching.
+        """
+        pointer = 0
+
+        while pointer < len(self.cached_products):
+            cached_product_obj = self.cached_products[pointer]
+            last_offer = cached_product_obj.history[-1]
+
+            if Price.days_diff(last_offer.date, int(time.time() * 1000)):
+                del self.cached_products[pointer]
+
+            if ref_product_obj == self.cached_products[pointer]:
+                return True, self.cached_products[pointer]
+
+            pointer += 1
+
+        return False, ref_product_obj
