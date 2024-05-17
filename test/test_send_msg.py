@@ -49,7 +49,7 @@ class TestSendOk:
     @pytest.mark.asyncio
     async def test_send (self, offer, user_wishes, redis_client: FakeRedis, request):
         # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         for user_wish in user_wishes:
             db.new_wish(**user_wish)
@@ -84,7 +84,7 @@ class TestDontSend:
     @pytest.mark.asyncio
     async def test_overpriced (self, offer, user_wishes, redis_client, request):
         # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
 
@@ -118,7 +118,7 @@ class TestDontSend:
     @pytest.mark.asyncio
     async def test_subpriced (self, offer, user_wishes, redis_client, request):
         # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
 
@@ -153,7 +153,7 @@ class TestDontSend:
     @pytest.mark.asyncio
     async def test_blacklisted (self, offer, user_wishes, redis_client: FakeRedis, request):
         # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
 
@@ -187,7 +187,7 @@ class TestDontSend:
     @pytest.mark.asyncio
     async def test_repeated (self, offer, user_wishes, redis_client: FakeRedis, request):
         # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
 
@@ -226,7 +226,7 @@ class TestDontSend:
     @pytest.mark.asyncio
     async def test_dont_match (self, offer, user_wish, redis_client: FakeRedis, request):
         # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
 
@@ -259,13 +259,13 @@ class TestSendAfter:
             )
         ]
     )
-    @patch('project.models.time')
+    @patch('project.structs.time')
     @pytest.mark.asyncio
     async def test_repeated_after_3_days (
         self, mock_time, offer, user_wishes, delay, redis_client: FakeRedis, request
     ):
         # Prepare Mocks and environment
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
 
@@ -306,13 +306,13 @@ class TestSendAfter:
             )
         ]
     )
-    @patch('project.models.time')
+    @patch('project.structs.time')
     @pytest.mark.asyncio
     async def test_repeated_before_3_days (
         self, mock_time, offer, user_wishes, delay, redis_client: FakeRedis, request
     ):
         # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
 
