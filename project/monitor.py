@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import pickle
 import time
 import traceback
 from typing import Any
@@ -11,10 +12,9 @@ from project import config
 from project.bots import base
 from project.database import Database
 from project.metrics_collector import MetricsCollector
-from project.models import (FormatPromoMessage, LocalCache, Price, Product,
-                            Wish, WishGroup)
+from project.models import FormatPromoMessage, Price, Product, Wish, WishGroup
 from project.structs import CreatePrice, CreateProduct
-from project.utils import brand_to_bot
+from project.utils import SECONDS_IN_DAY, brand_to_bot
 from project.vectorizers import Vectorizers
 
 
@@ -33,8 +33,6 @@ class Monitoring ():
     tested_categories: set  # Only to try all chats
     tested_brands: set  # Only to try all chats
 
-    today_offers: LocalCache
-
     def __init__ (self, **kwargs):
         self.retry = kwargs.get("retrys")
         self.database = kwargs.get("database")
@@ -47,8 +45,6 @@ class Monitoring ():
 
         self.tested_categories = set()
         self.tested_brands = set()
-
-        self.today_offers = LocalCache()
 
         self.redis_client.set("stop_signal", 0)
 
@@ -116,6 +112,12 @@ class Monitoring ():
 
         product_obj = CreateProduct(offer_name, category, price, tags).to_database_obj()
 
+        ref_product = self.redis_client.get(product_obj.key())
+        is_cached = True if ref_product is not None else False
+
+        if is_cached:
+            return False, pickle.loads(ref_product)
+
         new_product, raw_product_item = self.database.find_or_insert_product(product_obj)
 
         if new_product:
@@ -123,6 +125,12 @@ class Monitoring ():
 
         if not isinstance(raw_product_item, Product):
             product_obj = Product.from_dict(raw_product_item)
+
+        # Save in cache
+        self.redis_client.set(
+            product_obj.key(), pickle.dumps(product_obj),
+            SECONDS_IN_DAY * 3
+        )
 
         return new_product, product_obj
 
@@ -141,7 +149,7 @@ class Monitoring ():
     async def send_products_to_wish (
         self, all_wishes: list[WishGroup], product_obj: Product, price_obj: Price, price_idx: int
     ):
-        brand = price_obj.brand
+        has_price_change = False
 
         for wish in all_wishes:
             users_wish = wish["users"]
@@ -190,6 +198,14 @@ class Monitoring ():
                 else:
                     self.update_sents(0, product_obj, price_idx, user_id)
                     continue
+
+                has_price_change = True
+
+        if has_price_change:
+            self.redis_client.set(
+                product_obj.key(), pickle.dumps(product_obj),
+                SECONDS_IN_DAY * 3
+            )
 
     def update_sents (self, has_sent: bool, product_obj: Product, price_idx, user_id):
         self.database.add_new_user_in_price_sent(product_obj._id, price_idx, user_id, has_sent)
@@ -248,13 +264,9 @@ class Monitoring ():
                 brand, price, original_price, offer["url"], offer["img"], offer.get("extras", {}),
                 offer["details"], is_promo, offer.get("is_affiliate", None)
             )
-            is_cached, ref_product = self.today_offers.get_product_from_cache(product_obj)
-
-            if not is_cached:
-                self.today_offers.cached_products.append(product_obj)
 
             _, price_obj, price_idx = await self.add_or_get_price(
-                tags, price_obj.to_database_obj(), ref_product
+                tags, price_obj.to_database_obj(), product_obj
             )
 
             # Initializing verification that shows if all brands are working
@@ -279,11 +291,6 @@ class Monitoring ():
             print(traceback.format_exc())
 
     async def continuous_verify_price (self):
-        # Reset daily offers
-        if self.redis_client.get("reset_daily"):
-            self.redis_client.set("reset_daily", 0)
-            self.today_offers = {}
-
         links_cursor = self.database.get_links()
 
         logging.warning("Verifying bots that need to run...")

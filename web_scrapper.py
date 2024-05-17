@@ -11,7 +11,7 @@ from project.metrics_collector import MetricsCollector
 from project.monitor import Monitoring
 from project.vectorizers import Vectorizers
 
-logging.getLogger().setLevel(logging.DEBUG)
+logging.getLogger().setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(filename)s - %(levelname)s - %(message)s')
 
 stream_handler = logging.StreamHandler()
@@ -22,12 +22,12 @@ logging.getLogger().addHandler(stream_handler)
 
 
 def main ():
-    metrics = MetricsCollector(9091)
-
-    db = Database(metrics)
-    vectorizers = Vectorizers()
+    metrics = MetricsCollector(9091, True) # TODO remove true for fake
 
     redis_client = Redis(host=config.REDIS_URL, port=6379)
+
+    db = Database(metrics, redis_client)
+    vectorizers = Vectorizers()
 
     monitor = Monitoring(
         retry=3,
@@ -53,7 +53,6 @@ def main ():
 
         else:
             if current_date != last_checked_day:
-                monitor.today_offers = {}
                 last_checked_day = current_date
 
             asyncio.run(monitor.continuous_verify_price())

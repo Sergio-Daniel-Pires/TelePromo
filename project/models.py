@@ -1,5 +1,4 @@
 import dataclasses as dc
-import time
 from typing import Any, Self
 
 import bson
@@ -74,8 +73,7 @@ class Price(DatabaseObject):
         if self.days_diff(self.date, __value.date):
             if self.price == __value.price:
                 if self.brand == __value.brand:
-                    if self.users_sent == __value.users_sent:
-                        return True
+                    return True
 
         return False
 
@@ -151,6 +149,9 @@ class Product(DatabaseObject):
             }
         })
 
+    def key (self):
+        return f"product:{self.tags}"
+
 class FormatPromoMessage:
     """
     Object that formats user message
@@ -187,31 +188,3 @@ class FormatPromoMessage:
 
         return output
 
-class LocalCache:
-    cached_products: list[Product]
-    limit_cached_days: int
-
-    def __init__ (self, limit_cached_days: int = 3):
-        self.cached_products = []
-        self.limit_cached_days = limit_cached_days
-
-    def get_product_from_cache (self, ref_product_obj: Product) -> tuple[bool, Product]:
-        """
-        Returns if Product was found in local cache.
-        Remove olds products while searching.
-        """
-        pointer = 0
-
-        while pointer < len(self.cached_products):
-            cached_product_obj = self.cached_products[pointer]
-            last_offer = cached_product_obj.history[-1]
-
-            if Price.days_diff(last_offer.date, int(time.time() * 1000)):
-                del self.cached_products[pointer]
-
-            if ref_product_obj == self.cached_products[pointer]:
-                return True, self.cached_products[pointer]
-
-            pointer += 1
-
-        return False, ref_product_obj

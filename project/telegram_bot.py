@@ -626,8 +626,6 @@ class ImportantJobs:
     repeating_jobs: list[str]
     redis_client: Redis
 
-    ONE_DAY: int = 86400
-
     def __init__(self, redis_client: Redis) -> None:
         self.redis_client = redis_client
         self.repeating_jobs = [ "get_messages_and_send" ]
@@ -665,6 +663,3 @@ class ImportantJobs:
 
     async def reset_default_promo (self, context: ContextTypes.DEFAULT_TYPE):
         self.redis_client.set("sent_first_promo", 1)
-
-    async def reset_daily_promos (self):
-        self.redis_client.set("reset_daily", 1)

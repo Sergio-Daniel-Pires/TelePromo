@@ -1,9 +1,11 @@
 import logging
+import pickle
 import time
 from typing import Any
 
 import bson
 import pymongo
+import redis
 from pymongo.collection import Collection
 
 from project import config
@@ -11,7 +13,7 @@ from project.links import LINKS
 from project.metrics_collector import MetricsCollector
 from project.models import Price, Product, User, WishGroup
 from project.structs import CreateUser, CreateWish, CreateWishGroup
-from project.utils import SECONDS_IN_HOUR
+from project.utils import SECONDS_IN_DAY, SECONDS_IN_HOUR
 
 
 class Database:
@@ -20,13 +22,16 @@ class Database:
     """
     client: pymongo.MongoClient
     database: dict[str, Collection]
+    redis_client: redis.Redis
     metrics_client: MetricsCollector
 
     def __init__ (
-        self, metrics_client: MetricsCollector, mongo_client: pymongo.MongoClient = pymongo.MongoClient
+        self, metrics_client: MetricsCollector, redis_client: redis.Redis,
+        mongo_client: pymongo.MongoClient = pymongo.MongoClient
     ):
         self.metrics_client = metrics_client
         self.client = mongo_client(config.MONGO_CONN_STR)
+        self.redis_client = redis_client
         self.database = self.client["telepromo"]
 
         self.create_links(LINKS)
@@ -138,7 +143,7 @@ class Database:
         Update product history into database with new price
         """
         self.database["products"].update_one(
-            { "tags": {"$all": tags} }, {
+            { "tags": { "$all": tags } }, {
                 "$set": { "price": price_obj.price },
                 "$push": { "history": price_obj.to_insert_data() }
             }
@@ -175,7 +180,7 @@ class Database:
         """
         Return user wishes from user id
         """
-        return self.find_or_create_user(user_id, user_name)[1]["wish_list"]
+        return self.find_or_create_user(user_id, user_name)[1].wish_list
 
     def verify_repeated_wish (self, user_id, tag_list, **kwargs):
         all_wishes = kwargs.get("wish_list")
@@ -352,9 +357,19 @@ class Database:
             price_index = history.index(new_price)
             return False, history[price_index], price_index
 
-        except ValueError:
+        except ValueError as exc:
+            # Update in DB
             self.update_product_history(tags, new_price)
+
+            # Update in-memory
             product_obj.history.append(new_price)
+
+            # Update
+            self.redis_client.set(
+                product_obj.key(), pickle.dumps(product_obj),
+                SECONDS_IN_DAY * 3
+            )
+
             return True, new_price, len(history)
 
         except Exception as exc:
