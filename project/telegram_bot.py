@@ -15,7 +15,7 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
 from project import config
 from project.database import Database
 from project.metrics_collector import MetricsCollector
-from project.models import FormatPromoMessage
+from project.models import FormatPromoMessage, User
 from project.utils import brand_to_bot, normalize_str
 from project.vectorizers import Vectorizers
 
@@ -346,7 +346,7 @@ class TelegramBot ():
             user_id = update.message.from_user["id"]
             user_name = update.message.from_user["first_name"]
             product = update.message.text
-            tag_list = await self.vectorizer.extract_tags(product, "")
+            tag_list = await self.vectorizer.extract_tags(product)
             tag_mapping = {
                 ELETRONICS: "eletronics", CLOTHES: "clothes", HOUSE: "house",
                 PETS: "pets", BOOKS: "books", OTHERS: "others"
@@ -426,19 +426,20 @@ class TelegramBot ():
         if update.message is not None:
             values = update.message.text
             lower_price, max_price = ( None, None )
-            hifens = values.count("-")
+            price_range = [
+                int(x) for x in values.split("-") if values.count("-") == 1 and x.isnumeric()
+            ]
 
             user_id = update.message.from_user["id"]
 
-            if not all(v.isnumeric() for v in values) or hifens > 1:
+            if len(price_range) == 0 or len(price_range) > 2:
                 end_text = "Valor invalido, tentar novamente?"
 
             else:
-                if hifens:
-                    lower_price, max_price = tuple(map(int, values.split()))
+                max_price = price_range[0]
 
-                else:
-                    max_price = values
+                if len(price_range) == 2:
+                    lower_price, max_price = price_range
 
                 self.database.update_wish_by_index(
                     user_id, index, lower_price=lower_price, max_price=max_price
@@ -467,7 +468,8 @@ class TelegramBot ():
             )
 
         else:
-            user_name = user_obj["name"]
+            user_obj = User.from_dict(user_obj)
+            user_name = user_obj.name
             wish_list = self.database.user_wishes(user_id, user_name)
 
             if len(wish_list) == 0:
@@ -478,9 +480,11 @@ class TelegramBot ():
 
             else:
                 list_wish_text = "Seus alertas:"
+
                 for index, wish_obj in enumerate(wish_list):
-                    name = wish_obj["name"]
-                    buttons.append([InlineKeyboardButton(text=name, callback_data=f"W{index}")])
+                    buttons.append([
+                        InlineKeyboardButton(text=wish_obj.name, callback_data=f"W{index}")
+                    ])
 
                 context.user_data[TYPING] = False
 

@@ -12,7 +12,8 @@ from project import config
 from project.bots import base
 from project.database import Database
 from project.metrics_collector import MetricsCollector
-from project.models import FormatPromoMessage, Price, Product, Wish, WishGroup
+from project.models import (BaseWish, FormatPromoMessage, Price, Product,
+                            WishGroup)
 from project.structs import CreatePrice, CreateProduct
 from project.utils import SECONDS_IN_DAY, brand_to_bot
 from project.vectorizers import Vectorizers
@@ -180,7 +181,7 @@ class Monitoring ():
                 ):
                     continue
 
-                user_wish = Wish(**users_wish[user_id])
+                user_wish = BaseWish(**users_wish[user_id])
 
                 if (
                     (product_obj.price < user_wish.max * 1.03 or user_wish.max == 0) and
