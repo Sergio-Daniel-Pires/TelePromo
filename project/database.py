@@ -312,7 +312,7 @@ class Database:
 
     def update_wish_by_index (
         self, user_id: int, index: str, blacklist: list[str] = None,
-        lower_price: int | str = None, max_price: int | str = None
+        min_price: int | str = None, max_price: int | str = None
     ):
         """
         Update wish price or blacklist
@@ -328,17 +328,17 @@ class Database:
         update_on_wishes = {}
         update_on_users = {}
 
-        if max_price:
+        if max_price is not None:
             max_price = int(max_price)
             update_on_users[f"wish_list.{index}.max"] = max_price
             update_on_wishes[f"users.{user_id}.max"] = max_price
 
-        if lower_price:
-            lower_price = int(lower_price)
-            update_on_users[f"wish_list.{index}.min"] = lower_price
-            update_on_wishes[f"users.{user_id}.min"] = lower_price
+        if min_price is not None:
+            min_price = int(min_price)
+            update_on_users[f"wish_list.{index}.min"] = min_price
+            update_on_wishes[f"users.{user_id}.min"] = min_price
 
-        if blacklist:
+        if blacklist is not None:
             update_on_users[f"wish_list.{index}.blacklist"] = blacklist
             update_on_wishes[f"users.{user_id}.blacklist"] = blacklist
 
