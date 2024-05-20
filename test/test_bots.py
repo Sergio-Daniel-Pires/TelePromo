@@ -57,7 +57,7 @@ class TestSendWithoutApi:
     @pytest.mark.asyncio
     async def test_send (self, bot_name, category, link, redis_client: FakeRedis, request):
         # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
 

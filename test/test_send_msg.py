@@ -52,7 +52,7 @@ class TestSendOk:
         db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         for user_wish in user_wishes:
-            db.new_wish(**user_wish)
+            db.new_wish_in_group(**user_wish)
 
         vectorizers = Vectorizers()
 
@@ -98,7 +98,7 @@ class TestDontSend:
         monitor.tested_brands = { "Aliexpress", "Magalu" }
 
         for user_wish in user_wishes:
-            monitor.database.new_wish(**user_wish)
+            monitor.database.new_wish_in_group(**user_wish)
 
         await monitor.send_offer_to_user(request.getfixturevalue(offer))
 
@@ -132,7 +132,7 @@ class TestDontSend:
         monitor.tested_brands = { "Aliexpress", "Magalu" }
 
         for user_wish in user_wishes:
-            monitor.database.new_wish(**user_wish)
+            monitor.database.new_wish_in_group(**user_wish)
 
         await monitor.send_offer_to_user(request.getfixturevalue(offer))
 
@@ -167,7 +167,7 @@ class TestDontSend:
         monitor.tested_brands = { "Aliexpress", "Magalu" }
 
         for user_wish in user_wishes:
-            monitor.database.new_wish(**user_wish)
+            monitor.database.new_wish_in_group(**user_wish)
 
         await monitor.send_offer_to_user(request.getfixturevalue(offer))
 
@@ -201,7 +201,7 @@ class TestDontSend:
         monitor.tested_brands = { "Aliexpress", "Magalu" }
 
         for user_wish in user_wishes:
-            monitor.database.new_wish(**user_wish)
+            monitor.database.new_wish_in_group(**user_wish)
 
         await monitor.send_offer_to_user(request.getfixturevalue(offer))
 
@@ -239,7 +239,7 @@ class TestDontSend:
         )
         monitor.tested_brands = { "Aliexpress", "Magalu" }
 
-        monitor.database.new_wish(**user_wish)
+        monitor.database.new_wish_in_group(**user_wish)
 
         await monitor.send_offer_to_user(request.getfixturevalue(offer))
 
@@ -279,7 +279,7 @@ class TestSendAfter:
         monitor.tested_brands = { "Aliexpress", "Magalu" }
 
         for user_wish in user_wishes:
-            monitor.database.new_wish(**user_wish)
+            monitor.database.new_wish_in_group(**user_wish)
 
         ### Finish mocks and environment
 
@@ -326,7 +326,7 @@ class TestSendAfter:
         monitor.tested_brands = { "Aliexpress", "Magalu" }
 
         for user_wish in user_wishes:
-            monitor.database.new_wish(**user_wish)
+            monitor.database.new_wish_in_group(**user_wish)
 
         mock_time.time = time.time
         await monitor.send_offer_to_user(request.getfixturevalue(offer))
