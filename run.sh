@@ -9,12 +9,13 @@ export MONGO_CONN_STR="mongodb://127.0.0.1:27017/"
 
 # Verifica o Redis
 if pgrep redis > /dev/null; then
-    echo "Stopping local redis to start from container"
-    sudo systemctl stop redis
+    echo "Redis Ok"
+else
+    echo "Redis aren't running. Please, start Redis and try again"
+    exit 1
 fi
 
 # Start docker
-sudo docker start tele-redis
 sudo docker start grafana
 sudo docker start tele-prometheus
 

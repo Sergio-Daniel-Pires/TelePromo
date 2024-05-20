@@ -15,8 +15,8 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
 from project import config
 from project.database import Database
 from project.metrics_collector import MetricsCollector
-from project.models import FormatPromoMessage
-from project.utils import brand_to_bot, normalize_str
+from project.models import FormatPromoMessage, User, UserWish
+from project.utils import normalize_str
 from project.vectorizers import Vectorizers
 
 # First Level
@@ -342,19 +342,11 @@ class TelegramBot ():
         keyboard = None
 
         if context.user_data.get(TYPING, False):
-            # Salvar produto no Mongo
             user_id = update.message.from_user["id"]
             user_name = update.message.from_user["first_name"]
             product = update.message.text
-            tag_list = await self.vectorizer.extract_tags(product, "")
-            tag_mapping = {
-                ELETRONICS: "eletronics", CLOTHES: "clothes", HOUSE: "house",
-                PETS: "pets", BOOKS: "books", OTHERS: "others"
-            }
-            category = tag_mapping[context.user_data[TYPING]]
-
-            status, message = self.database.insert_new_user_wish(
-                user_id, user_name, tag_list, product, category
+            status, message = self.prepare_and_insert_wish(
+                product, context.user_data[TYPING], user_id, user_name
             )
 
             if status:
@@ -386,6 +378,7 @@ class TelegramBot ():
 
         else:
             option = update.callback_query.data
+
             if option and option.startswith("E") and option[1:].isdigit():
                 context.user_data[INDEX] = int(option[1:])
 
@@ -424,25 +417,13 @@ class TelegramBot ():
             status_to_return = ANOTHER_PRODUCT
 
         if update.message is not None:
-            values = update.message.text
-            lower_price, max_price = ( None, None )
-            hifens = values.count("-")
-
+            price_range = update.message.text
             user_id = update.message.from_user["id"]
 
-            if not all(v.isnumeric() for v in values.split("-")) or hifens > 1:
+            is_price_range_ok = self.split_and_insert_price_range(price_range, user_id, index)
+
+            if not is_price_range_ok:
                 end_text = "Valor invalido, tentar novamente?"
-
-            else:
-                if hifens:
-                    lower_price, max_price = tuple(map(int, values.split("-")))
-
-                else:
-                    max_price = values
-
-                self.database.update_wish_by_index(
-                    user_id, index, lower_price=lower_price, max_price=max_price
-                )
 
         option = update.callback_query
 
@@ -461,14 +442,14 @@ class TelegramBot ():
 
         user_obj = self.database.find_user(user_id)
 
-        if not user_obj:
+        if user_obj is None:
             list_wish_text = (
                 "Você ainda não usou os serviços!\n"
             )
 
         else:
-            user_name = user_obj["name"]
-            wish_list = self.database.user_wishes(user_id, user_name)
+            user_obj = User.from_dict(user_obj)
+            wish_list = self.database.user_wishes(user_id, user_obj.name)
 
             if len(wish_list) == 0:
                 list_wish_text = (
@@ -478,9 +459,11 @@ class TelegramBot ():
 
             else:
                 list_wish_text = "Seus alertas:"
+
                 for index, wish_obj in enumerate(wish_list):
-                    name = wish_obj["name"]
-                    buttons.append([InlineKeyboardButton(text=name, callback_data=f"W{index}")])
+                    buttons.append([
+                        InlineKeyboardButton(text=wish_obj.name, callback_data=f"W{index}")
+                    ])
 
                 context.user_data[TYPING] = False
 
@@ -496,16 +479,14 @@ class TelegramBot ():
         option = update.callback_query.data
         user_id = context._user_id
         index = int(option[1:])
-        user_obj = self.database.find_user(user_id)
-        user_name = user_obj["name"]
+        user_obj = User.from_dict(self.database.find_user(user_id))
 
-        wish_obj = self.database.user_wishes(user_id, user_name)[index]
+        wish_obj = UserWish.from_dict(self.database.user_wishes(user_id, user_obj.name)[index])
 
         product_text = (
-            f"Produto: {wish_obj['name']}\n"
-            f"Maximo: {wish_obj['max']}\n"
-            f"Minimo: {wish_obj['min']}\n"
-            f"Blacklist: {wish_obj['blacklist']}\n"
+            f"Produto: {wish_obj.name}\n"
+            f"Maximo: {wish_obj.max}\n"
+            f"Blacklist: {wish_obj.blacklist}\n"
         )
 
         buttons = [
@@ -515,6 +496,7 @@ class TelegramBot ():
             ],
             [ InlineKeyboardButton(text="Blacklist", callback_data=f"B{index}") ],
             # [ InlineKeyboardButton(text="Bloquear lojas", callback_data=f"A{index}") ],
+            # TODO good feature, remembers me too add later.
             [ InlineKeyboardButton(text="Voltar", callback_data=str(RETURN)) ]
         ]
         keyboard = InlineKeyboardMarkup(buttons)
@@ -530,9 +512,7 @@ class TelegramBot ():
         option = update.callback_query.data
 
         if option.startswith("R") and option[1:].isdigit():
-            user_id = context._user_id
-            index = int(option[1:])
-            self.database.remove_user_wish(user_id, index)
+            self.database.remove_user_wish(context._user_id, int(option[1:]))
 
             # Decrease in one edited
             self.metrics_collector.handle_user_request("remove")
@@ -598,44 +578,58 @@ class TelegramBot ():
 
         return SHOW_BLOCK
 
-    async def list_stores (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        buttons = [[]]
-        user_id = context._user_id
+    async def prepare_and_insert_wish (
+        self, product: str, category_type: str, user_id: int, user_name: str,
+    ) -> tuple[bool, str]:
+        """
+        return true if was inserted new wish or false with reason.
+        """
+        tag_list = await self.vectorizer.extract_tags(product)
 
-        for idx, store in enumerate(brand_to_bot):
-            last_line = buttons[-1]
+        tag_mapping = {
+            ELETRONICS: "eletronics", CLOTHES: "clothes", HOUSE: "house",
+            PETS: "pets", BOOKS: "books", OTHERS: "others"
+        }
+        category = tag_mapping[category_type]
 
-            last_line.append(InlineKeyboardButton(text=store, callback_data=f"B{idx}"))
+        status, message = self.database.insert_new_user_wish(
+            user_id, user_name, tag_list, product, category
+        )
 
-            if len(last_line) == 2:
-                buttons.append([])
+        return status, message
 
-        buttons.append(InlineKeyboardButton(text="Voltar", callback_data=str(END)))
+    def split_and_insert_price_range (self, price_range: str, user_id: int, index: int) -> bool:
+        lower_price, max_price = ( None, None )
+        price_range = [
+            int(x) for x in price_range.split("-") if price_range.count("-") == 1 and x.isnumeric()
+        ]
 
-        return LISTING
+        if len(price_range) == 0 or len(price_range) > 2:
+            return False
 
-    async def block_store (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        option = update.callback_query.data
+        max_price = price_range[0]
 
-        if option and option.startswith("B") and option[1:].isdigit():
-            store_index = int(option[1:])
-            store = list(brand_to_bot)[store_index]
+        if len(price_range) == 2:
+            lower_price, max_price = price_range
 
-        return RETURN
+        self.database.update_wish_by_index(
+            user_id, index, lower_price=lower_price, max_price=max_price
+        )
+
+        return True
 
 class ImportantJobs:
     repeating_jobs: list[str]
     redis_client: Redis
 
-    ONE_DAY: int = 86400
-
     def __init__(self, redis_client: Redis) -> None:
         self.redis_client = redis_client
         self.repeating_jobs = [ "get_messages_and_send" ]
 
-    # Tirar daqui depois "ah mas faz agr e bota em ingles"
-    # Nao, meu codigo minhas regras.
     async def get_messages_and_send (self, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Get messages from redis and send to users
+        """
         while True:
             raw_data = self.redis_client.lpop("msgs_to_send")
 
@@ -650,6 +644,9 @@ class ImportantJobs:
             await asyncio.sleep(0.1)
 
     async def sent_ngrok_msg (self, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Sent ngrok url link to bot owner if ngrok was setted
+        """
         try:
             ngrok_url = os.environ.get("NGROK_URL", "ngrok-docker")
             ngrok_servers = requests.get(f"http://{ngrok_url}:4040/api/tunnels").json()
@@ -665,7 +662,7 @@ class ImportantJobs:
             logging.warning("Ngrok not setted")
 
     async def reset_default_promo (self, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Sent ngrok message link to bot owner every day
+        """
         self.redis_client.set("sent_first_promo", 1)
-
-    async def reset_daily_promos (self):
-        self.redis_client.set("reset_daily", 1)

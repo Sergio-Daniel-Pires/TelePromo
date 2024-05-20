@@ -7,7 +7,7 @@ from prometheus_client import Counter, start_http_server
 class MetricsCollector:
     port: int
 
-    def __init__(self, port=8000):
+    def __init__(self, port: int = 8000):
         self.port = port
 
         self.sites_returns_total = Counter(

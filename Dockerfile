@@ -1,4 +1,4 @@
-from python:3.10-slim
+from python:3.11-slim
 
 # Env dependencies
 ENV PYTHONDONTWRITEBYTECODE=1

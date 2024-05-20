@@ -19,11 +19,11 @@ logging.getLogger().addHandler(stream_handler)
 
 def main ():
     metrics = MetricsCollector(9092)
-
-    db = Database(metrics)
-    vectorizers = Vectorizers()
-
     redis_client = Redis(host=config.REDIS_URL, port=6379)
+
+    db = Database(metrics, redis_client)
+
+    vectorizers = Vectorizers()
 
     telegram_bot = TelegramBot(
         database=db,
@@ -46,12 +46,7 @@ def main ():
     # Reset first sent promo
     telegram_bot.application.job_queue.run_once(important_jobs.reset_default_promo, 7)
 
-    telegram_bot.application.job_queue.run_repeating(
-        important_jobs.reset_daily_promos, important_jobs.ONE_DAY
-    )
-
     telegram_bot.application.run_polling()
-
 
 if __name__ == "__main__":
     main()

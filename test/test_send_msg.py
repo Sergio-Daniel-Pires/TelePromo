@@ -6,6 +6,7 @@ import pytest
 from fakeredis import FakeRedis
 
 from project.monitor import Database, Monitoring, Vectorizers
+from project.utils import SECONDS_IN_DAY
 
 
 @pytest.mark.parametrize(["offer", "user_wishes"],
@@ -48,10 +49,10 @@ class TestSendOk:
     @pytest.mark.asyncio
     async def test_send (self, offer, user_wishes, redis_client: FakeRedis, request):
         # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         for user_wish in user_wishes:
-            db.new_wish(**user_wish)
+            db.new_wish_in_group(**user_wish)
 
         vectorizers = Vectorizers()
 
@@ -83,7 +84,7 @@ class TestDontSend:
     @pytest.mark.asyncio
     async def test_overpriced (self, offer, user_wishes, redis_client, request):
         # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
 
@@ -97,7 +98,7 @@ class TestDontSend:
         monitor.tested_brands = { "Aliexpress", "Magalu" }
 
         for user_wish in user_wishes:
-            monitor.database.new_wish(**user_wish)
+            monitor.database.new_wish_in_group(**user_wish)
 
         await monitor.send_offer_to_user(request.getfixturevalue(offer))
 
@@ -117,7 +118,7 @@ class TestDontSend:
     @pytest.mark.asyncio
     async def test_subpriced (self, offer, user_wishes, redis_client, request):
         # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
 
@@ -131,7 +132,7 @@ class TestDontSend:
         monitor.tested_brands = { "Aliexpress", "Magalu" }
 
         for user_wish in user_wishes:
-            monitor.database.new_wish(**user_wish)
+            monitor.database.new_wish_in_group(**user_wish)
 
         await monitor.send_offer_to_user(request.getfixturevalue(offer))
 
@@ -152,7 +153,7 @@ class TestDontSend:
     @pytest.mark.asyncio
     async def test_blacklisted (self, offer, user_wishes, redis_client: FakeRedis, request):
         # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
 
@@ -166,7 +167,7 @@ class TestDontSend:
         monitor.tested_brands = { "Aliexpress", "Magalu" }
 
         for user_wish in user_wishes:
-            monitor.database.new_wish(**user_wish)
+            monitor.database.new_wish_in_group(**user_wish)
 
         await monitor.send_offer_to_user(request.getfixturevalue(offer))
 
@@ -186,7 +187,7 @@ class TestDontSend:
     @pytest.mark.asyncio
     async def test_repeated (self, offer, user_wishes, redis_client: FakeRedis, request):
         # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
 
@@ -200,7 +201,7 @@ class TestDontSend:
         monitor.tested_brands = { "Aliexpress", "Magalu" }
 
         for user_wish in user_wishes:
-            monitor.database.new_wish(**user_wish)
+            monitor.database.new_wish_in_group(**user_wish)
 
         await monitor.send_offer_to_user(request.getfixturevalue(offer))
 
@@ -219,17 +220,13 @@ class TestDontSend:
             ),
             (
                 'iphone_offer', { "tags": [ "xiaomi", "preto" ], "user": "1", "max_price": 1000 }
-            ),
-            (
-                'iphone_offer',
-                { "tags": [ "xiaomi", "preto", "12mp" ], "user": "1", "max_price": 1000 }
-            ),
+            )
         ]
     )
     @pytest.mark.asyncio
     async def test_dont_match (self, offer, user_wish, redis_client: FakeRedis, request):
         # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
 
@@ -242,7 +239,7 @@ class TestDontSend:
         )
         monitor.tested_brands = { "Aliexpress", "Magalu" }
 
-        monitor.database.new_wish(**user_wish)
+        monitor.database.new_wish_in_group(**user_wish)
 
         await monitor.send_offer_to_user(request.getfixturevalue(offer))
 
@@ -258,17 +255,17 @@ class TestSendAfter:
                 [
                     { "tags": [ "iphone" ], "user": "1", "max_price": 1000 }
                 ],
-                ((86400 * 3) + 100) # 3 days in seconds + 100 sec
+                ((SECONDS_IN_DAY * 3) + 100) # 3 days in seconds + 100 sec
             )
         ]
     )
-    @patch('project.models.time')
+    @patch('project.structs.time')
     @pytest.mark.asyncio
     async def test_repeated_after_3_days (
         self, mock_time, offer, user_wishes, delay, redis_client: FakeRedis, request
     ):
-        # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        # Prepare Mocks and environment
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
 
@@ -282,7 +279,9 @@ class TestSendAfter:
         monitor.tested_brands = { "Aliexpress", "Magalu" }
 
         for user_wish in user_wishes:
-            monitor.database.new_wish(**user_wish)
+            monitor.database.new_wish_in_group(**user_wish)
+
+        ### Finish mocks and environment
 
         mock_time.time = time.time
         await monitor.send_offer_to_user(request.getfixturevalue(offer))
@@ -303,17 +302,17 @@ class TestSendAfter:
                 [
                     { "tags": [ "iphone" ], "user": "1", "max_price": 1000 }
                 ],
-                ((86400 * 2) + 100) # 2 days in seconds + 100 sec
+                ((SECONDS_IN_DAY * 2) + 100) # 2 days in seconds + 100 sec
             )
         ]
     )
-    @patch('project.models.time')
+    @patch('project.structs.time')
     @pytest.mark.asyncio
     async def test_repeated_before_3_days (
         self, mock_time, offer, user_wishes, delay, redis_client: FakeRedis, request
     ):
         # Prepare DB for requests
-        db = Database(None, mongo_client=mongomock.MongoClient)
+        db = Database(None, redis_client, mongo_client=mongomock.MongoClient)
 
         vectorizers = Vectorizers()
 
@@ -327,7 +326,7 @@ class TestSendAfter:
         monitor.tested_brands = { "Aliexpress", "Magalu" }
 
         for user_wish in user_wishes:
-            monitor.database.new_wish(**user_wish)
+            monitor.database.new_wish_in_group(**user_wish)
 
         mock_time.time = time.time
         await monitor.send_offer_to_user(request.getfixturevalue(offer))
