@@ -4,17 +4,30 @@ from typing import Any
 
 import bson
 
-from project.models import Price, Product, User, Wish, WishGroup
+from project.models import BaseWish, Price, Product, User, UserWish, WishGroup
 
 
 @dc.dataclass()
-class CreateWish:
+class CreateBaseWish:
     max: int
     min: int = dc.field(default=0)
     blacklist: list[str] = dc.field(default_factory=list)
 
     def to_database_obj (self):
-        return Wish(**self.__dict__)
+        return BaseWish(**self.__dict__)
+
+@dc.dataclass()
+class CreateUserWish:
+    group_wish_id: str
+    max: str
+    min: str
+    name: str
+    category: str
+    tags: list[str] = dc.field(default_factory=list)
+    blacklist: list[str] = dc.field(default_factory=list)
+
+    def to_database_obj (self):
+        return UserWish(**self.__dict__)
 
 @dc.dataclass()
 class CreateUser:
@@ -23,7 +36,7 @@ class CreateUser:
     """
     _id: str
     name: str
-    wish_list: list[Wish] = dc.field(default_factory=list)
+    wish_list: list[UserWish] = dc.field(default_factory=list)
     max_wishes: int = dc.field(default=10)
     premium: bool = dc.field(default=False)
 
@@ -36,7 +49,7 @@ class CreateWishGroup:
     Wish object to use in PyMongo
     """
     tags: list[str] = dc.field(default_factory=list)
-    users: dict[int: Wish] = dc.field(default_factory=dict)
+    users: dict[int: BaseWish] = dc.field(default_factory=dict)
     num_wishes: int = dc.field(default=0)
 
     def to_database_obj (self):

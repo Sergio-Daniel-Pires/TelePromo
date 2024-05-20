@@ -18,20 +18,30 @@ class DatabaseObject():
         return cls(**data)
 
 @dc.dataclass()
-class Wish(DatabaseObject):
-    max: int  = dc.field(default=None)
-    min: int  = dc.field(default=None)
+class BaseWish (DatabaseObject):
+    max: int = dc.field(default=None)
+    min: int = dc.field(default=None)
     blacklist: list[str] = dc.field(default=None)
 
 @dc.dataclass()
-class User(DatabaseObject):
+class UserWish (DatabaseObject):
+    group_wish_id: str = dc.field(default=None)
+    max: str = dc.field(default=None)
+    min: str = dc.field(default=None)
+    name: str = dc.field(default=None)
+    category: str = dc.field(default=None)
+    tags: list[str] = dc.field(default=None)
+    blacklist: list[str] = dc.field(default=None)
+
+@dc.dataclass()
+class User (DatabaseObject):
     """
     User object to verify list of wishes and if is premium
     """
     _id: str = dc.field(default=None)
     name: str  = dc.field(default=None)
     max_wishes: int  = dc.field(default=None)
-    wish_list: list[Wish] = dc.field(default=None)
+    wish_list: list[UserWish] = dc.field(default=None)
     premium: bool = dc.field(default=None)
 
     def __post_init__ (self):
@@ -39,21 +49,21 @@ class User(DatabaseObject):
         Converts nested fields
         """
         if self.wish_list is not None:
-            self.wish_list = [ Wish(wish) for wish in self.wish_list ]
+            self.wish_list = [ UserWish.from_dict(wish) for wish in self.wish_list ]
 
 @dc.dataclass()
-class WishGroup(DatabaseObject):
+class WishGroup (DatabaseObject):
     """
     Wish object to use in PyMongo
     """
     _id: bson.ObjectId = dc.field(default=None)
     tags: list[str] = dc.field(default=None)
-    users: dict[int: Wish] = dc.field(default=None)
+    users: dict[int: BaseWish] = dc.field(default=None)
     num_wishes: int  = dc.field(default=None)
 
     def __post_init__ (self):
         if self.users is not None:
-            self.users = { key: Wish(wish) for key, wish in self.users.items() }
+            self.users = { key: BaseWish.from_dict(wish) for key, wish in self.users.items() }
 
 @dc.dataclass(eq=False)
 class Price(DatabaseObject):
@@ -82,7 +92,7 @@ class Price(DatabaseObject):
         return abs((date1 - date2) // 1000) < SECONDS_IN_DAY * qtd_days
 
 @dc.dataclass()
-class Product(DatabaseObject):
+class Product (DatabaseObject):
     """
     Product object to use in PyMongo
     """
