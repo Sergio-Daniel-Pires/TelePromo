@@ -67,27 +67,6 @@ class TelegramBot ():
 
         self.redis_client.set("send_first_promo", 1)
 
-        self.block_stores_conv = ConversationHandler(
-            entry_points={
-                CallbackQueryHandler(self.list_stores, pattern="^" + str(TO_LIST) + "$")
-            },
-            states={
-                LISTING: [
-                    CallbackQueryHandler(self.return_to_start, pattern="^" + str(END) + "$"),
-                    CallbackQueryHandler(self.block_store, pattern=r"^B\d*$")
-                ]
-            },
-            fallbacks={
-                CommandHandler("start", self.start),
-                CommandHandler("help", self.show_help),
-                CommandHandler("status", self.show_status)
-            },
-            map_to_parent={
-                RETURN: SHOWING,
-                ANOTHER_PRODUCT: SHOWING
-            }
-        )
-
         self.list_product_conv = ConversationHandler(
             entry_points={
                 CallbackQueryHandler(self.list_wishs, pattern="^" + str(TO_LIST) + "$")
@@ -106,17 +85,13 @@ class TelegramBot ():
                     ),
                     CallbackQueryHandler(
                         self.ask_for_blacklist, pattern="^" + str(RETURN) + r"$|^B\d*$"
-                    ),
-                    CallbackQueryHandler(
-                        self.show_block_stores, pattern="^" + str(RETURN) + r"$|^A\d*$"
                     )
                 ],
                 PRICING: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_product)],
                 TYPING: [
                     CallbackQueryHandler(self.save_blacklist, pattern="^" + str(RETURN)),
                     MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_blacklist)
-                ],
-                SHOW_BLOCK: [ self.block_stores_conv ]
+                ]
             },
             fallbacks={
                 CommandHandler("start", self.start),
@@ -569,14 +544,6 @@ class TelegramBot ():
             await update.callback_query.edit_message_text(text=end_text, reply_markup=keyboard)
 
         return SHOWING
-
-    async def show_block_stores (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        option = update.callback_query.data
-
-        if option and option.startswith("A") and option[1:].isdigit():
-            context.user_data[INDEX] = int(option[1:])
-
-        return SHOW_BLOCK
 
     async def prepare_and_insert_wish (
         self, product: str, category_type: str, user_id: int, user_name: str,
