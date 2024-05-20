@@ -43,7 +43,7 @@ class Nike (base.BotRunner):
 
 if __name__ == "__main__":
     ready_pages = [ Nike(
-        link="https://www.nike.com.br/_next/data/v10-331-0/nav/ofertas/emoferta.json", index=0,
+        link="https://www.nike.com.br/_next/data/v10-378-0/nav/ofertas/emoferta.json", index=0,
         category="clothes"
     ) ]
     results = asyncio.run(base.BotBase(ready_pages, False).run())
