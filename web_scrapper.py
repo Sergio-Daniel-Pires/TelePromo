@@ -22,7 +22,7 @@ logging.getLogger().addHandler(stream_handler)
 
 
 def main ():
-    metrics = MetricsCollector(9091, True) # TODO remove true for fake
+    metrics = MetricsCollector(9091)
 
     redis_client = Redis(host=config.REDIS_URL, port=6379)
 
@@ -59,7 +59,6 @@ def main ():
             monitor.last_execution_time = current_time
 
         time.sleep(10)
-
 
 if __name__ == "__main__":
     main()
