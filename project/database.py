@@ -11,8 +11,9 @@ from pymongo.collection import Collection
 from project import config
 from project.links import LINKS
 from project.metrics_collector import MetricsCollector
-from project.models import Price, Product, User, WishGroup
-from project.structs import CreateUser, CreateWish, CreateWishGroup
+from project.models import Price, Product, User, UserWish, WishGroup
+from project.structs import (CreateBaseWish, CreateUser, CreateUserWish,
+                             CreateWishGroup)
 from project.utils import SECONDS_IN_DAY, SECONDS_IN_HOUR
 
 
@@ -25,6 +26,12 @@ class Database:
     redis_client: redis.Redis
     metrics_client: MetricsCollector
 
+    # Collections
+    links: Collection
+    products: Collection
+    users: Collection
+    wishes: Collection
+
     def __init__ (
         self, metrics_client: MetricsCollector, redis_client: redis.Redis,
         mongo_client: pymongo.MongoClient = pymongo.MongoClient
@@ -36,6 +43,12 @@ class Database:
 
         self.create_links(LINKS)
 
+        # Collections
+        self.links = self.database["links"]
+        self.products = self.database["products"]
+        self.users = self.database["users"]
+        self.wishes = self.database["wishes"]
+
     # Product Funcs
     def create_links (self, all_links: list[dict[str, Any]]):
         """
@@ -44,7 +57,7 @@ class Database:
         for categorys in all_links:
             dict_all_links = [ link.to_insert() for link in categorys["links"] ]
 
-            self.database["links"].find_one_and_update(
+            self.database.links.find_one_and_update(
                 { "category": categorys["category"] },
                 { "$set": { "links": dict_all_links } },
                 upsert=True
@@ -54,7 +67,7 @@ class Database:
         """
         Retrieve links from database
         """
-        links = self.database["links"].find({})
+        links = self.database.links.find({})
         return links
 
     def update_link (self, category: str, index: int, status: str, metadata: str):
@@ -77,7 +90,7 @@ class Database:
             if metadata["repeat"] < SECONDS_IN_HOUR:
                 new_fields[f"links.{index}.repeat"] = metadata["repeat"] + 60 * 5
 
-        self.database["links"].update_one(
+        self.database.links.update_one(
             { "category": category },
             { "$set": new_fields }
         )
@@ -127,14 +140,17 @@ class Database:
         """
         Insert product if was the first time tags appears
         """
-        raw_product_obj = self.database["products"].find_one_and_update(
-            { "tags": { "$all": product_obj.tags } },
-            { "$setOnInsert": product_obj.to_insert_data() },
-            upsert=True, return_document=pymongo.ReturnDocument.BEFORE
+        # BUG remove duplicated queries
+        raw_product_obj = self.database.products.find_one(
+            { "tags": { "$all": product_obj.tags } }
         )
 
         if raw_product_obj is not None:
             return False, Product.from_dict(raw_product_obj)
+
+        raw_product_obj = self.database.products.insert_one(
+            product_obj.to_insert_data()
+        )
 
         return True, product_obj
 
@@ -142,7 +158,7 @@ class Database:
         """
         Update product history into database with new price
         """
-        self.database["products"].update_one(
+        self.database.products.update_one(
             { "tags": { "$all": tags } }, {
                 "$set": { "price": price_obj.price },
                 "$push": { "history": price_obj.to_insert_data() }
@@ -150,11 +166,11 @@ class Database:
         )
 
     # User Funcs
-    def find_user (self, user_id: int) -> pymongo.CursorType:
+    def find_user (self, user_id: int) -> dict[str, Any]:
         """
         Find an user by user_id
         """
-        return self.database["users"].find_one({ "_id": user_id })
+        return self.database.users.find_one({ "_id": user_id })
 
     def find_or_create_user (self, user_id: int, user_name: str) -> tuple[bool, User]:
         """
@@ -162,7 +178,7 @@ class Database:
         """
         new_obj_user = CreateUser(user_id, user_name).to_database_obj()
 
-        raw_user = self.database["users"].find_one_and_update(
+        raw_user = self.database.users.find_one_and_update(
             { "_id": user_id },
             { "$setOnInsert": new_obj_user.to_insert_data() },
             upsert=True,
@@ -176,7 +192,7 @@ class Database:
         return False, User.from_dict(raw_user)
 
     # Wish Funcs
-    def user_wishes (self, user_id: int, user_name: str) -> list[WishGroup]:
+    def user_wishes (self, user_id: int, user_name: str) -> list[UserWish]:
         """
         Return user wishes from user id
         """
@@ -188,8 +204,8 @@ class Database:
             all_wishes = self.user_wishes(user_id)
 
         for wish in all_wishes:
-            if wish["tags"] == tag_list:
-                return wish["name"]
+            if wish.tags == tag_list:
+                return wish.name
 
         return False
 
@@ -221,26 +237,20 @@ class Database:
         if (min_price > max_price and max_price != 0):
             return ( False, "Preço minimo não pode ser maior que o máximo!" )
 
-        wish_id = self.new_wish(tags=tag_list, user=user_id)
+        group_wish_id = self.new_wish_in_group(tags=tag_list, user=user_id)
 
-        self.database["users"].update_one(
+        self.database.users.update_one(
             { "_id": user_id },
             { "$push": {
-                "wish_list": {
-                    "wish_id": wish_id,
-                    "max": max_price,
-                    "min": min_price,
-                    "name": product,
-                    "tags": tag_list,
-                    "category": category,
-                    "blacklist": []
-                }
+                "wish_list": CreateUserWish(
+                    group_wish_id, max_price, min_price, product, category, tag_list
+                ).to_database_obj().to_insert_data()
             }}
         )
 
         return ( True, "Adicionado com sucesso!" )
 
-    def new_wish (self, **kwargs) -> bson.ObjectId:
+    def new_wish_in_group (self, **kwargs) -> bson.ObjectId:
         """
         Add new wish to WishGroup model
         """
@@ -251,21 +261,21 @@ class Database:
         max_price = kwargs.get("max_price", 0)
         user_bl = kwargs.get("blacklist", [])
 
-        wish_obj = self.database["wishes"].find_one_and_update(
+        wish_group_obj = self.database.wishes.find_one_and_update(
             { "tags": tags },
             {
                 "$setOnInsert": CreateWishGroup(tags=tags).to_database_obj().to_insert_data()
             },
             upsert=True, return_document=True
         )
-        wish_obj = WishGroup.from_dict(wish_obj)
-        wish_id = wish_obj._id
+        wish_group_obj = WishGroup.from_dict(wish_group_obj)
+        wish_id = wish_group_obj._id
 
-        self.database["wishes"].update_one(
+        self.database.wishes.update_one(
             { "_id":  wish_id },
             {
                 "$set": {
-                    f"users.{user_id}": CreateWish(
+                    f"users.{user_id}": CreateBaseWish(
                         max_price, min_price, user_bl
                     ).to_database_obj().to_insert_data()
                 },
@@ -279,16 +289,15 @@ class Database:
         """
         Remove user wish from User and WishGroup models
         """
-        user_obj = User.from_dict(self.database["users"].find_one({ "_id": user_id }))
-        wish_obj = user_obj.wish_list[index]
+        user_obj = User.from_dict(self.database.users.find_one({ "_id": user_id }))
+        user_wish_obj = user_obj.wish_list[index]
 
-        self.database["users"].update_one(
-            { "_id": user_id }, { "$pull": { "wish_list": wish_obj } }
+        self.database.users.update_one(
+            { "_id": user_id }, { "$pull": { "wish_list": user_wish_obj } }
         )
 
-        wish_id = wish_obj["wish_id"]
-        self.database["wishes"].update_one(
-            { "_id": wish_id },
+        self.database.wishes.update_one(
+            { "_id": user_wish_obj.group_wish_id },
             {
                 "$unset": { f"users.{user_id}": 1},
                 "$inc": { "num_wishes": -1 }
@@ -299,7 +308,7 @@ class Database:
         """
         Find all wishes by tags
         """
-        return self.database["wishes"].find({ "tags": { "$in": tags } })
+        return self.database.wishes.find({ "tags": { "$in": tags } })
 
     def update_wish_by_index (
         self, user_id: int, index: str, blacklist: list[str] = None,
@@ -308,14 +317,13 @@ class Database:
         """
         Update wish price or blacklist
         """
-        user_obj = User.from_dict(self.database["users"].find_one({ "_id": user_id }))
-        wish_list = user_obj.wish_list
+        user_obj = User.from_dict(self.database.users.find_one({ "_id": user_id }))
+        user_wish_list = user_obj.wish_list
 
         if index == -1:
-            index = len(wish_list) - 1
+            index = len(user_wish_list) - 1
 
-        wish_obj = wish_obj[index]
-        wish_id = wish_obj["wish_id"]
+        user_wish_obj = user_wish_list[index]
 
         update_on_wishes = {}
         update_on_users = {}
@@ -334,12 +342,12 @@ class Database:
             update_on_users[f"wish_list.{index}.blacklist"] = blacklist
             update_on_wishes[f"users.{user_id}.blacklist"] = blacklist
 
-        self.database["wishes"].update_one(
-            { "_id": wish_id },
+        self.database.wishes.update_one(
+            { "_id": user_wish_obj.group_wish_id },
             { "$set": update_on_wishes }
         )
 
-        self.database["users"].update_one(
+        self.database.users.update_one(
             { "_id": user_id },
             { "$set": update_on_users }
         )
@@ -382,7 +390,7 @@ class Database:
         """
         Save user id to don't repeat send
         """
-        self.database["products"].update_one(
+        self.database.products.update_one(
             { "_id": product_id },
             { "$set": { f"history.{price_idx}.users_sent.{user_id}": result } }
         )
