@@ -15,7 +15,7 @@ from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
 from project import config
 from project.database import Database
 from project.metrics_collector import MetricsCollector
-from project.models import FormatPromoMessage, User, UserWish
+from project.models import FormatPromoMessage, User
 from project.utils import normalize_str
 from project.vectorizers import Vectorizers
 
@@ -252,16 +252,19 @@ class TelegramBot ():
     async def donation (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         """View the donations method and return"""
         donation_text = (
-            "O criador desse bot é o Sérgio Pires @github\n"
+            "O criador desse bot é o Sérgio Pires "
+            "[Meu GitHub](https://github.com/Sergio-Daniel-Pires)\n"
             "Caso queira me pagar uma breja🍻, pode mandar um PIX para:\n\n"
-            "telepromobr@gmail.com"
+            r"telepromobr@gmail\.com"
         )
 
         button = InlineKeyboardButton(text="Inicio", callback_data=str(END))
         keyboard = InlineKeyboardMarkup.from_button(button)
 
         await update.callback_query.answer()
-        await update.callback_query.edit_message_text(text=donation_text, reply_markup=keyboard)
+        await update.callback_query.edit_message_text(
+            text=donation_text, reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN_V2
+        )
 
         context.user_data[START] = True
 
@@ -320,7 +323,7 @@ class TelegramBot ():
             user_id = update.message.from_user["id"]
             user_name = update.message.from_user["first_name"]
             product = update.message.text
-            status, message = self.prepare_and_insert_wish(
+            status, message = await self.prepare_and_insert_wish(
                 product, context.user_data[TYPING], user_id, user_name
             )
 
@@ -456,11 +459,12 @@ class TelegramBot ():
         index = int(option[1:])
         user_obj = User.from_dict(self.database.find_user(user_id))
 
-        wish_obj = UserWish.from_dict(self.database.user_wishes(user_id, user_obj.name)[index])
+        logging.info(self.database.user_wishes(user_id, user_obj.name))
+        wish_obj = self.database.user_wishes(user_id, user_obj.name)[index]
 
         product_text = (
             f"Produto: {wish_obj.name}\n"
-            f"Maximo: {wish_obj.max}\n"
+            f"Filtro de Preço: {wish_obj.min}-{wish_obj.max}\n"
             f"Blacklist: {wish_obj.blacklist}\n"
         )
 
@@ -469,7 +473,7 @@ class TelegramBot ():
                 InlineKeyboardButton(text="Remover", callback_data=f"R{index}"),
                 InlineKeyboardButton(text="Mudar Preço", callback_data=f"E{index}")
             ],
-            [ InlineKeyboardButton(text="Blacklist", callback_data=f"B{index}") ],
+            [ InlineKeyboardButton(text="Editar Blacklist", callback_data=f"B{index}") ],
             # [ InlineKeyboardButton(text="Bloquear lojas", callback_data=f"A{index}") ],
             # TODO good feature, remembers me too add later.
             [ InlineKeyboardButton(text="Voltar", callback_data=str(RETURN)) ]
@@ -522,26 +526,28 @@ class TelegramBot ():
     async def save_blacklist (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         button = InlineKeyboardButton(text="Voltar", callback_data=str(RETURN))
         keyboard = InlineKeyboardMarkup.from_button(button)
+        user_id = context._user_id
 
         # User sent words to blacklist
         if update.message:
             blacklist_words = normalize_str(update.message.text).split(" ")
-            user_id = update.message.from_user["id"]
 
-            if blacklist_words == [""]:
+            if blacklist_words == [ "" ]:
                 blacklist_words = []
-
-            self.database.update_wish_by_index(
-                user_id, context.user_data[INDEX], blacklist=blacklist_words
-            )
 
             end_text = "Blacklist salva!"
             await update.message.reply_text(text=end_text, reply_markup=keyboard)
 
         else:
-            end_text = "Blacklist não salva."
+            blacklist_words = []
+
+            end_text = "Blacklist removida"
 
             await update.callback_query.edit_message_text(text=end_text, reply_markup=keyboard)
+
+        self.database.update_wish_by_index(
+            user_id, context.user_data[INDEX], blacklist=blacklist_words
+        )
 
         return SHOWING
 
@@ -566,21 +572,22 @@ class TelegramBot ():
         return status, message
 
     def split_and_insert_price_range (self, price_range: str, user_id: int, index: int) -> bool:
-        lower_price, max_price = ( None, None )
+        min_price, max_price = ( None, None )
         price_range = [
-            int(x) for x in price_range.split("-") if price_range.count("-") == 1 and x.isnumeric()
+            int(x) for x in price_range.split("-") if price_range.count("-") <= 1 and x.isnumeric()
         ]
 
         if len(price_range) == 0 or len(price_range) > 2:
             return False
 
         max_price = price_range[0]
+        min_price = 0
 
         if len(price_range) == 2:
-            lower_price, max_price = price_range
+            min_price, max_price = price_range
 
         self.database.update_wish_by_index(
-            user_id, index, lower_price=lower_price, max_price=max_price
+            user_id, index, min_price=min_price, max_price=max_price
         )
 
         return True

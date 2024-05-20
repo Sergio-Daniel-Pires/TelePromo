@@ -8,7 +8,6 @@ from typing import Any
 
 from redis import Redis
 
-from project import config
 from project.bots import base
 from project.database import Database
 from project.metrics_collector import MetricsCollector
@@ -271,15 +270,16 @@ class Monitoring ():
             )
 
             # Initializing verification that shows if all brands are working
-            if brand not in self.tested_brands:
-                beautiful_msg = FormatPromoMessage.parse_msg(price_obj, product_obj, 1)
+            # TODO reactive when need to verify msg send
+            # if brand not in self.tested_brands:
+            #     beautiful_msg = FormatPromoMessage.parse_msg(price_obj, product_obj, 1)
 
-                self.redis_client.lpush(
-                    "msgs_to_send", json.dumps(
-                        { "chat_id": config.BOT_OWNER_CHAT_ID, "message": beautiful_msg }
-                    )
-                )
-                self.tested_brands.add(brand)
+            #     self.redis_client.lpush(
+            #         "msgs_to_send", json.dumps(
+            #             { "chat_id": config.BOT_OWNER_CHAT_ID, "message": beautiful_msg }
+            #         )
+            #     )
+            #     self.tested_brands.add(brand)
 
             all_wishes = self.database.find_all_wishes(tags)
 
