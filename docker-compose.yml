@@ -4,16 +4,12 @@ services:
   redis:
     image: redis
     container_name: tele-redis
-    ports:
-      - "6379:6379"
     networks:
       - network
 
   prometheus:
     image: prom/prometheus
     container_name: tele-prometheus
-    ports:
-      - "9090:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
@@ -39,10 +35,6 @@ services:
       dockerfile: Dockerfile
     volumes:
       - .:/telepromo
-    ports:
-      - "9091:9091"
-    expose:
-      - 9091
     networks:
       - network
     restart: always
@@ -56,10 +48,6 @@ services:
       dockerfile: Dockerfile
     volumes:
       - .:/telepromo
-    ports:
-      - "9092:9092"
-    expose:
-      - 9092
     networks:
       - network
     restart: always
