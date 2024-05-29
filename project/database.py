@@ -223,10 +223,10 @@ class Database:
         repeated = self.verify_repeated_wish(user_id, tag_list, wish_list=user_wish)
 
         if len(tag_list) >= 15:
-            ( False, "Nao pode ter mais que 15 palavras." )
+            return ( False, "Nao pode ter mais que 15 palavras." )
 
         elif len(tag_list) == 0:
-            ( False, "Poucas palavras ou invalidas." )
+            return ( False, "Poucas palavras ou invalidas." )
 
         elif repeated:
             return ( False, f"Usuário já tem um alerta igual: {repeated}" )
@@ -293,7 +293,8 @@ class Database:
         user_wish_obj = user_obj.wish_list[index]
 
         self.database.users.update_one(
-            { "_id": user_id }, { "$pull": { "wish_list": user_wish_obj } }
+            { "_id": user_id },
+            { "$pull": { "wish_list": user_wish_obj.to_insert_data() } }
         )
 
         self.database.wishes.update_one(

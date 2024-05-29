@@ -19,31 +19,24 @@ from project.models import FormatPromoMessage, User
 from project.utils import normalize_str
 from project.vectorizers import Vectorizers
 
-# First Level
+# Action handles
 (
-    SELECTING_ACTION, SELECTING_CATEGORY,
-    TO_ADD, TO_LIST, ADD_BLACKLIST
-) = map(chr, range(5))
+    SHOWING, SELECTING_ACTION, TYPING, RETURN,
+    RETURN_TO, ADD_MORE, TRY_AGAIN, SKIP, INDEX
+) = range(1, 10)
 
-# Second
-ELETRONICS, CLOTHES, HOUSE, PETS, BOOKS, OTHERS = map(chr, range(5, 11))  # max 5 to 11 (6)
+# First level
+(
+    START, DONATION, DETAILING, SELECTING_CATEGORY, TO_LIST, TO_ADD_NEW, TO_WISH, EDIT_PRICE
+) = range(11, 19)
 
-# Third
-ANOTHER_PRODUCT = map(chr, range(11, 12))
+# Second level
+PRICING, DEL_BLACKLIST, CHANGING_BLACKLIST, LISTING, FINISHING = range(20, 25)
 
-STOPPING, SHOWING, TYPING, LISTING, PRICING, SKIP = map(chr, range(12, 18))
+# Category const types
+ELETRONICS, CLOTHES, HOUSE, PETS, BOOKS, OTHERS = range(26, 32)
 
 END = ConversationHandler.END
-
-(
-    START,
-    DONATION,
-    SHOW_DONATE,
-    RETURN,
-    INDEX
-) = map(chr, range(19, 24))
-
-BLOCK_STORES, SHOW_BLOCK = map(chr, range(25, 27))
 
 # Monitoring funcs
 class TelegramBot ():
@@ -59,195 +52,112 @@ class TelegramBot ():
     def __init__ (self, **kwargs) -> None:
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
+        logging.info("Starting bot application")
         self.application = Application.builder().token(config.TELEGRAM_TOKEN).build()
-        logging.warning("Ligando o troço")
+        logging.info("Ligando o troço")
 
         self.metrics_collector = kwargs.get("metrics_collector")
         self.redis_client = kwargs.get("redis_client")
 
         self.redis_client.set("send_first_promo", 1)
 
-        self.list_product_conv = ConversationHandler(
-            entry_points={
-                CallbackQueryHandler(self.list_wishs, pattern="^" + str(TO_LIST) + "$")
-            },
+        self.donation_conv = ConversationHandler(
+            entry_points=[ CallbackQueryHandler(self.donation, pattern=f"^{DONATION}$") ],
+            states={ SHOWING: [ CallbackQueryHandler(self.default_options, f"^{RETURN}$") ] },
+            fallbacks=[
+                CallbackQueryHandler(self.end_conversation, f"^{SELECTING_ACTION}$")
+            ],
+            map_to_parent={ SELECTING_ACTION: SELECTING_ACTION }
+        )
+
+        self.wish_list_conv = ConversationHandler(
+            entry_points=[ CallbackQueryHandler(self.list_wishes, pattern=f"^{TO_LIST}$") ],
             states={
                 LISTING: [
-                    CallbackQueryHandler(self.return_to_start, pattern="^" + str(END) + "$"),
-                    CallbackQueryHandler(self.product_details, pattern=r"^W\d*$")
+                    # Return to Top Level
+                    CallbackQueryHandler(self.default_options, pattern=f"^{RETURN}$"),
+                    CallbackQueryHandler(self.wish_details, pattern=f"^W[0-9]*$")
                 ],
-                SHOWING: [
+                DETAILING: [
+                    # Return to LISTING
+                    CallbackQueryHandler(self.list_wishes, pattern=f"^{RETURN}$"),
+                    CallbackQueryHandler(self.delete_wish, pattern=f"^D[0-9]*$"),
+
+                    # Later, return for same product
+                    CallbackQueryHandler(self.change_blacklist, pattern=f"^CB[0-9]*$"),
+                    CallbackQueryHandler(self.show_price_message, pattern=f"^EP[0-9]*$")
+                ],
+                CHANGING_BLACKLIST: [
                     CallbackQueryHandler(
-                        self.return_to_product_list, pattern="^" + str(RETURN) + r"$|^R\d*$"
+                        self.confirm_bl_change, pattern=f"^{DEL_BLACKLIST}$|^{RETURN}$"
                     ),
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.confirm_bl_change)
+                ],
+                PRICING: [
+                    CallbackQueryHandler(self.verify_price, pattern=f"^{SKIP}$"),
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.verify_price)
+                ]
+            },
+            fallbacks=[
+                CallbackQueryHandler(self.end_conversation, f"^{SELECTING_ACTION}$")
+            ],
+            map_to_parent={ SELECTING_ACTION: SELECTING_ACTION }
+        )
+
+        self.add_wish_conv = ConversationHandler(
+            entry_points=[ CallbackQueryHandler(self.select_category, pattern=f"^{TO_ADD_NEW}$") ],
+            states={
+                SELECTING_CATEGORY: [
+                    #Return to Top Level
+                    CallbackQueryHandler(self.default_options, pattern=f"^{RETURN}$"),
                     CallbackQueryHandler(
-                        self.save_price, pattern="^" + str(RETURN) + r"$|^E\d*$"
-                    ),
-                    CallbackQueryHandler(
-                        self.ask_for_blacklist, pattern="^" + str(RETURN) + r"$|^B\d*$"
+                        self.show_product_msg,
+                        pattern=f"^({ELETRONICS}|{CLOTHES}|{HOUSE}|{PETS}|{BOOKS}|{OTHERS})$"
                     )
                 ],
-                PRICING: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_product)],
                 TYPING: [
-                    CallbackQueryHandler(self.save_blacklist, pattern="^" + str(RETURN)),
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_blacklist)
-                ]
-            },
-            fallbacks={
-                CommandHandler("start", self.start),
-                CommandHandler("help", self.show_help),
-                CommandHandler("status", self.show_status)
-            },
-            map_to_parent={
-                SELECTING_ACTION: SELECTING_ACTION,
-                RETURN: SHOWING,
-                ANOTHER_PRODUCT: SHOWING
-            }
-        )
-
-        self.add_product_conv = ConversationHandler(
-            entry_points={
-                CallbackQueryHandler(
-                    self.ask_for_product,
-                    pattern=f"^{ELETRONICS}$|^{CLOTHES}$|^{HOUSE}$|^{PETS}$|^{BOOKS}$|^{OTHERS}$"
-                )
-            },
-            states={
-                TYPING: [MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_price)],
-                PRICING: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.save_product),
-                    CallbackQueryHandler(self.save_product, pattern="^" + str(SKIP) + "$"),
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.verify_save_product),
+                    # Return to select category
+                    CallbackQueryHandler(self.select_category, pattern=f"^{RETURN}$")
                 ],
-                ANOTHER_PRODUCT: [
-                    CallbackQueryHandler(self.select_category, pattern="^" + str(RETURN) + "$")
+                PRICING: [
+                    CallbackQueryHandler(self.verify_price, pattern=f"^{SKIP}$"),
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.verify_price)
+                ],
+                TO_ADD_NEW: [
+                    CallbackQueryHandler(self.select_category, pattern=f"^{ADD_MORE}$"),
+                    CallbackQueryHandler(self.default_options, pattern=f"^{SELECTING_ACTION}$")
                 ]
             },
             fallbacks=[
-                CallbackQueryHandler(self.return_to_start, pattern="^" + str(END) + "$"),
-                CallbackQueryHandler(self.select_category, pattern="^" + str(RETURN) + "$"),
-                CommandHandler("start", self.start),
-                CommandHandler("help", self.show_help),
-                CommandHandler("status", self.show_status)
+                CallbackQueryHandler(self.end_conversation, f"^{SELECTING_ACTION}$")
             ],
-            map_to_parent={
-                RETURN: TO_ADD,
-                TO_ADD: TO_ADD,
-                SELECTING_ACTION: SELECTING_ACTION
-            }
+            map_to_parent={ SELECTING_ACTION: SELECTING_ACTION }
         )
 
-        self.category_conv = ConversationHandler(
-            entry_points={
-                CallbackQueryHandler(
-                    self.select_category, pattern="^" + str(SELECTING_CATEGORY) + "$"
-                )
-            },
-            states={
-                TO_ADD: [ self.add_product_conv ]
-            },
-            fallbacks=[
-                CallbackQueryHandler(self.return_to_start, pattern="^" + str(END) + "$"),
-                CommandHandler("start", self.start),
-                CommandHandler("help", self.show_help),
-                CommandHandler("status", self.show_status)
-            ],
-            map_to_parent={
-                SELECTING_ACTION: SELECTING_ACTION
-            }
-        )
-
-        self.selection_handlers = [
-            self.category_conv,
-            self.list_product_conv,
-            CallbackQueryHandler(self.donation, pattern="^" + str(DONATION) + "$"),
-        ]
         self.conv_handler = ConversationHandler(
             entry_points=[
-                CommandHandler("start", self.start),
-                CommandHandler("help", self.show_help),
-                CommandHandler("status", self.show_status)
+                CommandHandler("start", self.default_options)
             ],
             states={
-                SHOWING: [CallbackQueryHandler(self.start, pattern="^" + str(END) + "$")],
-                SELECTING_ACTION: self.selection_handlers,
-                STOPPING: [CommandHandler("start", self.start)]
+                SELECTING_ACTION: [ self.donation_conv, self.add_wish_conv, self.wish_list_conv ],
             },
-            fallbacks=[
-                CommandHandler("start", self.start),
-                CommandHandler("help", self.show_help),
-                CommandHandler("status", self.show_status)
-            ]
+            fallbacks=[]
         )
+
         self.application.add_handler(handler=self.conv_handler)
 
     @classmethod
     async def enque_message (cls, context: ContextTypes.DEFAULT_TYPE, chat_id: int, text: str):
         try:
             await context.bot.send_message(
-                chat_id=chat_id,
-                text=text,
+                chat_id=chat_id, text=text,
                 parse_mode=ParseMode.MARKDOWN_V2,
                 disable_web_page_preview=False
             )
 
-        except Exception:
-            raise NetworkError("Erro ao enviar mensagem")
-
-    async def show_help (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        await update.message.reply_text(
-                    "O telepromobr é um bot de busca e alerta de ofertas!\n"
-                    "Caso experiencie algum erro e/ou travamento durante a aplicação, por favor"
-                    "utilize novamente o comando '/start' para retornar ao inicio.\n"
-                    "Caso queira ver os sites que o bot procura, de '/status'\n"
-                    "\n"
-                    "Em caso de bugs ou problemas, relate a telepromobr@gmail.com\n"
-                    "Por favor, se puder, de uma moral na aba 'Fortalecer Breja'\n"
-                    "Obrigado por utilizar!"
-            )
-
-        context.user_data[START] = False
-        await self.start(update, context)
-
-        return SELECTING_ACTION
-
-    async def show_status (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        site_status = self.database.get_site_status()
-        await update.message.reply_text(f"Status de cada site do bot:\n{site_status}")
-
-        context.user_data[START] = False
-        await self.start(update, context)
-
-        return SELECTING_ACTION
-
-    async def start (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        """Select an action: Donation, Finalize, List wishs, New Wish"""
-        text = (
-            "Escolha uma dos botões abaixo:\n"
-            "ou\n"
-            "Para abrir menu ajuda: /help\n"
-        )
-
-        buttons = [
-            [InlineKeyboardButton(text="🍻 - Fortalecer Breja", callback_data=str(DONATION))],
-            [InlineKeyboardButton(text="➕ - Novo produto", callback_data=str(SELECTING_CATEGORY))],
-            [InlineKeyboardButton(text="📝 - Lista de Desejos", callback_data=str(TO_LIST))],
-        ]
-        keyboard = InlineKeyboardMarkup(buttons)
-
-        if not context.user_data.get(START):
-            await update.message.reply_text(
-                    "Olá, eu sou o Bot TelePromoBr, "
-                    "estou aqui para te ajudar a acompanhar preços/promoções de produtos"
-            )
-            await update.message.reply_text(text=text, reply_markup=keyboard)
-
-        else:
-            await update.callback_query.answer()
-            await update.callback_query.edit_message_text(text=text, reply_markup=keyboard)
-
-        context.user_data[START] = False
-
-        return SELECTING_ACTION
+        except Exception as exc:
+            raise NetworkError(f"Failed to send telegram message: {exc}")
 
     async def donation (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         """View the donations method and return"""
@@ -258,183 +168,73 @@ class TelegramBot ():
             r"telepromobr@gmail\.com"
         )
 
-        button = InlineKeyboardButton(text="Inicio", callback_data=str(END))
+        button = InlineKeyboardButton(text="Inicio", callback_data=RETURN)
         keyboard = InlineKeyboardMarkup.from_button(button)
 
-        await update.callback_query.answer()
         await update.callback_query.edit_message_text(
             text=donation_text, reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN_V2
         )
 
-        context.user_data[START] = True
-
         return SHOWING
 
-    async def select_category (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        """Add new product"""
-        select_category_text = (
-            "Selecione a categoria do produto:\n"
+    async def default_options (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """Select an action: Donation, Finalize, List wishs, New Wish"""
+        text = (
+            "Escolha uma dos botões abaixo:\n"
+            "ou\n"
+            "Para abrir menu ajuda: /help\n"
         )
 
         buttons = [
-            [InlineKeyboardButton(text="📱 - Eletronicos", callback_data=str(ELETRONICS))],
-            [InlineKeyboardButton(text="👚 - Roupas", callback_data=str(CLOTHES))],
-            [InlineKeyboardButton(text="🏠 - Casa/Lar", callback_data=str(HOUSE))],
-            [InlineKeyboardButton(text="🐶 - Pets", callback_data=str(PETS))],
-            [InlineKeyboardButton(text="📚 - Livros", callback_data=str(BOOKS))],
-            [InlineKeyboardButton(text="📝 - Outros", callback_data=str(OTHERS))],
-            [InlineKeyboardButton(text="Inicio", callback_data=str(END))]
+            [InlineKeyboardButton(text="🍻 - Fortalecer Breja", callback_data=DONATION)],
+            [InlineKeyboardButton(text="➕ - Novo produto", callback_data=TO_ADD_NEW)],
+            [InlineKeyboardButton(text="📝 - Lista de Desejos", callback_data=TO_LIST)],
         ]
-
         keyboard = InlineKeyboardMarkup(buttons)
 
-        await update.callback_query.answer()
-        await update.callback_query.edit_message_text(
-            text=select_category_text, reply_markup=keyboard
-        )
-
-        return TO_ADD
-
-    async def ask_for_product (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        new_product_text = (
-            "Escreva abaixo o nome do produto:\n"
-        )
-
-        button = InlineKeyboardButton(text="Voltar", callback_data=str(RETURN))
-        keyboard = InlineKeyboardMarkup.from_button(button)
-
-        await update.callback_query.edit_message_text(text=new_product_text, reply_markup=keyboard)
-
-        context.user_data[START] = True
-        context.user_data[TYPING] = update.callback_query.data
         context.user_data[INDEX] = None
 
-        return TYPING
-
-    async def save_price (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        product_ask = (
-            "APENAS NUMEROS SEM VIRGULA. Digite '0' se não quiser limitar o preco\n"
-            "(Limites de valores, exemplo: 200-1000 vai pegar de R$ 200 até R$ 1000)\n"
-        )
-
-        keyboard = None
-
-        if context.user_data.get(TYPING, False):
-            user_id = update.message.from_user["id"]
-            user_name = update.message.from_user["first_name"]
-            product = update.message.text
-            status, message = await self.prepare_and_insert_wish(
-                product, context.user_data[TYPING], user_id, user_name
-            )
-
-            if status:
-                product_ask = (
-                    "Adicionado! Deseja definir valores maximos para o produto?:\n"
-                    + product_ask
-                )
-                button = InlineKeyboardButton(text="Pular", callback_data=str(SKIP))
-
-                # Decrease in one edited
-                self.metrics_collector.handle_user_request("new")
-
-            else:
-                if message == "Usuário só pode ter até 10 wishes":
-                    product_ask = message
-
-                    button = InlineKeyboardButton(text="Inicio", callback_data=str(END))
-
-                else:
-                    product_ask = (
-                        message + "\n"
-                        "Deseja tentar novamente?"
-                    )
-                    button = InlineKeyboardButton(text="Sim", callback_data=str(RETURN))
-
-            function = update.message.reply_text
-
-            keyboard = InlineKeyboardMarkup.from_button(button)
-
-        else:
-            option = update.callback_query.data
-
-            if option and option.startswith("E") and option[1:].isdigit():
-                context.user_data[INDEX] = int(option[1:])
-
-            function = update.callback_query.edit_message_text
-
-        await function(text=product_ask, reply_markup=keyboard)
-
-        return PRICING
-
-    async def save_product (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        index = context.user_data.get(INDEX)
-
-        if index is not None:
-            end_text = "Editado!"
-            button = InlineKeyboardButton(text="Voltar", callback_data=str(RETURN))
-            keyboard = InlineKeyboardMarkup.from_button(button)
-
-            # Increase in one edited
-            self.metrics_collector.handle_user_request("edit")
-
-            status_to_return = SHOWING
-
-        else:
-            index = -1
-
-            end_text = "Finalizado! Gostaria de adicionar mais?"
-
-            buttons = [
-                [InlineKeyboardButton(text="Sim", callback_data=str(RETURN))],
-                [InlineKeyboardButton(text="Nao", callback_data=str(END))]
-            ]
-
-            # Adicionado com sucesso
-            keyboard = InlineKeyboardMarkup(buttons)
-
-            status_to_return = ANOTHER_PRODUCT
-
         if update.message is not None:
-            price_range = update.message.text
-            user_id = update.message.from_user["id"]
-
-            is_price_range_ok = self.split_and_insert_price_range(price_range, user_id, index)
-
-            if not is_price_range_ok:
-                end_text = "Valor invalido, tentar novamente?"
-
-        option = update.callback_query
-
-        if option and option.data == SKIP:
-            await update.callback_query.edit_message_text(text=end_text, reply_markup=keyboard)
+            await update.message.reply_text(
+                    "Olá, eu sou o Bot TelePromoBr, "
+                    "estou aqui para te ajudar a acompanhar preços/promoções de produtos"
+            )
+            await update.message.reply_text(text=text, reply_markup=keyboard)
 
         else:
-            await update.message.reply_text(text=end_text, reply_markup=keyboard)
+            await update.callback_query.edit_message_text(text=text, reply_markup=keyboard)
 
-        return status_to_return
+        return SELECTING_ACTION
 
-    async def list_wishs (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    async def end_conversation (self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """End conversation, returning to parent state"""
+        return SELECTING_ACTION
+
+    async def list_wishes (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """ list user wishes if user exists and has wishes, else return an error """
+
         buttons = []
 
         user_id = context._user_id
 
         user_obj = self.database.find_user(user_id)
 
+        # User not exists
         if user_obj is None:
-            list_wish_text = (
-                "Você ainda não usou os serviços!\n"
-            )
+            list_wish_text = "Você ainda não usou os serviços!\n"
 
         else:
             user_obj = User.from_dict(user_obj)
             wish_list = self.database.user_wishes(user_id, user_obj.name)
 
+            # User exists, but has no wishes
             if len(wish_list) == 0:
                 list_wish_text = (
                     "Você ainda não tem alertas!\n"
                     "Crie alertas na aba 'Adicionar produtos'!"
                 )
 
+            # User exists and has wishes
             else:
                 list_wish_text = "Seus alertas:"
 
@@ -443,20 +243,177 @@ class TelegramBot ():
                         InlineKeyboardButton(text=wish_obj.name, callback_data=f"W{index}")
                     ])
 
-                context.user_data[TYPING] = False
-
-        buttons.append([InlineKeyboardButton(text="Inicio", callback_data=str(END))])
+        buttons.append([InlineKeyboardButton(text="Inicio", callback_data=RETURN)])
         keyboard = InlineKeyboardMarkup(buttons)
 
-        await update.callback_query.answer()
         await update.callback_query.edit_message_text(text=list_wish_text, reply_markup=keyboard)
 
         return LISTING
 
-    async def product_details (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        option = update.callback_query.data
+    async def select_category (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """Show options for product categories"""
+        select_category_text = (
+            "Selecione a categoria do produto:\n"
+        )
+
+        buttons = [
+            [InlineKeyboardButton(text="📱 - Eletronicos", callback_data=ELETRONICS)],
+            [InlineKeyboardButton(text="👚 - Roupas", callback_data=CLOTHES)],
+            [InlineKeyboardButton(text="🏠 - Casa/Lar", callback_data=HOUSE)],
+            [InlineKeyboardButton(text="🐶 - Pets", callback_data=PETS)],
+            [InlineKeyboardButton(text="📚 - Livros", callback_data=BOOKS)],
+            [InlineKeyboardButton(text="📝 - Outros", callback_data=OTHERS)],
+            [InlineKeyboardButton(text="Inicio", callback_data=RETURN)]
+        ]
+
+        keyboard = InlineKeyboardMarkup(buttons)
+
+        await update.callback_query.edit_message_text(
+            text=select_category_text, reply_markup=keyboard
+        )
+
+        return SELECTING_CATEGORY
+
+    async def show_product_msg (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """ Show message alerting that user can write product name"""
+        new_product_text = "Escreva abaixo o nome do produto:\n"
+
+        # If was coming from "Select Category"
+        if update.callback_query:
+            context.user_data[SELECTING_CATEGORY] = update.callback_query.data
+
+        button = InlineKeyboardButton(text="Voltar", callback_data=RETURN)
+        keyboard = InlineKeyboardMarkup.from_button(button)
+
+        if update.callback_query is not None:
+            await update.callback_query.edit_message_text(
+                text=new_product_text, reply_markup=keyboard
+            )
+
+        else:
+            await update.message.reply_text(text=new_product_text, reply_markup=keyboard)
+
+        return TYPING
+
+    async def verify_save_product (self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """ Verify if user can add new products """
+        user_id = update.message.from_user["id"]
+        user_name = update.message.from_user["first_name"]
+        raw_product_name = update.message.text
+        has_inserted, message = await self.prepare_and_insert_wish(
+            raw_product_name, context.user_data[SELECTING_CATEGORY], user_id, user_name
+        )
+
+        # Funcionou, deve esperar texto
+        if has_inserted:
+            # Index are -1 if has inserted
+            context.user_data[INDEX] = -1
+            message += " Deseja adicionar limites de valores?"
+            await update.message.reply_text(message)
+
+            # Jump directly to price_conv
+            return await self.show_price_message(update, context)
+
+        # Falhou, deve voltar para o "TYPING" ou para começo, caso seja erro de limite
+        else:
+            if message == "Usuário só pode ter até 10 wishes":
+                await update.message.reply_text(message)
+
+                # Return for initial menu
+                return await self.default_options(update, context)
+
+            else:
+                message += " Por favor, tente novamente."
+                await update.message.reply_text(message)
+
+                # On error, return directly to TYPING
+                return await self.show_product_msg(update, context)
+
+    async def show_price_message (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """ Show message alerting that user can write price for product """
+        price_text = (
+            "APENAS NUMEROS SEM VIRGULA. Digite '0' ou 'Pular' não quiser limitar o preco\n"
+            "(Limites de valores, exemplo: 200-1000 vai pegar de R$ 200 até R$ 1000)\n"
+        )
+        button = InlineKeyboardButton(text="Pular", callback_data=SKIP)
+        keyboard = InlineKeyboardMarkup.from_button(button)
+
+        # Special case when show price are called from state (not directly, as usually)
+        if update.callback_query is not None:
+            context.user_data[INDEX] = int(update.callback_query.data[2:])
+
+        if update.message is not None:
+            await update.message.reply_text(price_text, reply_markup=keyboard)
+
+        else:
+            await update.callback_query.edit_message_text(text=price_text, reply_markup=keyboard)
+
+        return PRICING
+
+    async def verify_price (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """ Verify if user has inserted an valid price """
+        price_range = "0"
+        index = context.user_data.get(INDEX) or -1
         user_id = context._user_id
-        index = int(option[1:])
+
+        # Option is None when comes from user text input
+        if update.callback_query is None:
+            price_range = update.message.text
+
+        is_price_range_ok = self.split_and_insert_price_range(price_range, user_id, index)
+
+        if not is_price_range_ok:
+            invalid_price_error = "Valor invalido, Por favor, tente novamente"
+
+            await update.message.reply_text(text=invalid_price_error)
+
+            # Return to PRICING
+            return await self.show_price_message(update, context)
+
+        # if index was -1, are a new product, if was a new product, jumps to ask for add more
+        if index == -1:
+            message = "Preço salvo com sucesso!"
+            if update.message is not None:
+                await update.message.reply_text(message)
+
+            else:
+                await update.callback_query.edit_message_text(message)
+
+            # Jumps to "Want to add more products?" conv
+            return await self.ask_for_add_more(update, context)
+
+        # Returns to wish detailing
+        else:
+            return await self.wish_details(update, context)
+
+    async def ask_for_add_more (self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """ When user finishes item add pipeline, ask if he wants to restart the pipeline """
+        message = "Gostaria de adicionar mais produtos?"
+
+        buttons = [ [
+            InlineKeyboardButton(text="Sim", callback_data=ADD_MORE),
+            InlineKeyboardButton(text="Nao", callback_data=SELECTING_ACTION)
+        ] ]
+        keyboard = InlineKeyboardMarkup(buttons)
+
+        if update.message is not None:
+            await update.message.reply_text(message, reply_markup=keyboard)
+
+        else:
+            await update.callback_query.edit_message_text(message, reply_markup=keyboard)
+
+        return TO_ADD_NEW
+
+    async def wish_details (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """ Detail wish selected by user """
+        user_id = context._user_id
+
+        # INDEX, when returning from blacklist/price change or option when comes from wish list
+        index = context.user_data.get(INDEX)
+        if index is None:
+            index = int(update.callback_query.data[1:])
+            context.user_data[INDEX] = index
+
         user_obj = User.from_dict(self.database.find_user(user_id))
 
         logging.info(self.database.user_wishes(user_id, user_obj.name))
@@ -470,108 +427,100 @@ class TelegramBot ():
 
         buttons = [
             [
-                InlineKeyboardButton(text="Remover", callback_data=f"R{index}"),
-                InlineKeyboardButton(text="Mudar Preço", callback_data=f"E{index}")
+                InlineKeyboardButton(text="Remover", callback_data=f"D{index}"),
+                InlineKeyboardButton(text="Mudar Preço", callback_data=f"EP{index}")
             ],
-            [ InlineKeyboardButton(text="Editar Blacklist", callback_data=f"B{index}") ],
+            [ InlineKeyboardButton(text="Editar Blacklist", callback_data=f"CB{index}") ],
             # [ InlineKeyboardButton(text="Bloquear lojas", callback_data=f"A{index}") ],
             # TODO good feature, remembers me too add later.
-            [ InlineKeyboardButton(text="Voltar", callback_data=str(RETURN)) ]
+            [ InlineKeyboardButton(text="Voltar", callback_data=RETURN) ]
         ]
         keyboard = InlineKeyboardMarkup(buttons)
 
-        await update.callback_query.answer()
-        await update.callback_query.edit_message_text(text=product_text, reply_markup=keyboard)
+        if update.message is not None:
+            await update.message.reply_text(text=product_text, reply_markup=keyboard)
 
-        return SHOWING
+        else:
+            await update.callback_query.edit_message_text(text=product_text, reply_markup=keyboard)
 
-    async def return_to_product_list (
-        self, update: Update, context: ContextTypes.DEFAULT_TYPE
-    ) -> str:
+        return DETAILING
+
+    async def delete_wish (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """ Delete user selected wish """
         option = update.callback_query.data
 
-        if option.startswith("R") and option[1:].isdigit():
-            self.database.remove_user_wish(context._user_id, int(option[1:]))
+        self.database.remove_user_wish(context._user_id, int(option[1:]))
 
-            # Decrease in one edited
-            self.metrics_collector.handle_user_request("remove")
+        # Decrease in one edited
+        self.metrics_collector.handle_user_request("remove")
 
-        await self.list_wishs(update, context)
+        # Directly returning for list wishes
+        context.user_data[INDEX] = None # BUG Don't remove this line or index detailing gonna crazy
+        return await self.list_wishes(update, context)
 
-        return LISTING
-
-    async def return_to_start (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        context.user_data[START] = True
-        await self.start(update, context)
-
-        return SELECTING_ACTION
-
-    async def ask_for_blacklist (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    async def change_blacklist (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """ Change a wish blacklist tags """
         new_product_text = (
             "Escreva abaixo as palavras que vão ser descartadas ao procurar produtos:\n"
         )
 
-        button = InlineKeyboardButton(text="Remover blacklist (voltar)", callback_data=str(RETURN))
-        keyboard = InlineKeyboardMarkup.from_button(button)
+        buttons = [ [
+            InlineKeyboardButton(text="Voltar", callback_data=RETURN),
+            InlineKeyboardButton(text="Remover blacklist", callback_data=DEL_BLACKLIST)
+        ] ]
+
+        keyboard = InlineKeyboardMarkup(buttons)
+
+        # Set Wish index to memory, because "User typing" can't return regex with index
+        context.user_data[INDEX] = int(update.callback_query.data[2:])
 
         await update.callback_query.edit_message_text(text=new_product_text, reply_markup=keyboard)
 
-        context.user_data[START] = True
-        option = update.callback_query.data
-        if option and option.startswith("B") and option[1:].isdigit():
-            context.user_data[INDEX] = int(option[1:])
+        return CHANGING_BLACKLIST
 
-        return TYPING
+    async def confirm_bl_change (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """ Set wish new blacklist, or do nothing if new blacklist are None """
+        new_blacklist = None
 
-    async def save_blacklist (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        button = InlineKeyboardButton(text="Voltar", callback_data=str(RETURN))
-        keyboard = InlineKeyboardMarkup.from_button(button)
-        user_id = context._user_id
+        # if message was text
+        if (incoming_msg := update.message) is not None:
+            new_blacklist = normalize_str(incoming_msg.text).split(" ")
 
-        # User sent words to blacklist
-        if update.message:
-            blacklist_words = normalize_str(update.message.text).split(" ")
-
-            if blacklist_words == [ "" ]:
-                blacklist_words = []
-
-            end_text = "Blacklist salva!"
-            await update.message.reply_text(text=end_text, reply_markup=keyboard)
-
-        else:
-            blacklist_words = []
-
-            end_text = "Blacklist removida"
-
-            await update.callback_query.edit_message_text(text=end_text, reply_markup=keyboard)
+        # if message was from "Remove Blacklist" Button
+        elif update.callback_query is not None and int(update.callback_query.data) == DEL_BLACKLIST:
+            new_blacklist = []
 
         self.database.update_wish_by_index(
-            user_id, context.user_data[INDEX], blacklist=blacklist_words
+            context._user_id, context.user_data[INDEX], blacklist=new_blacklist
         )
 
-        return SHOWING
+        # Directly returning for wish detail
+        return await self.wish_details(update, context)
 
     async def prepare_and_insert_wish (
-        self, product: str, category_type: str, user_id: int, user_name: str,
+        self, raw_product_name: str, category_type: str, user_id: int, user_name: str,
     ) -> tuple[bool, str]:
         """
         return true if was inserted new wish or false with reason.
         """
-        tag_list = await self.vectorizer.extract_tags(product)
+        tag_list = await self.vectorizer.extract_tags(raw_product_name)
 
         tag_mapping = {
             ELETRONICS: "eletronics", CLOTHES: "clothes", HOUSE: "house",
             PETS: "pets", BOOKS: "books", OTHERS: "others"
         }
-        category = tag_mapping[category_type]
+        category = tag_mapping[int(category_type)]
 
-        status, message = self.database.insert_new_user_wish(
-            user_id, user_name, tag_list, product, category
+        has_inserted, message = self.database.insert_new_user_wish(
+            user_id, user_name, tag_list, raw_product_name, category
         )
 
-        return status, message
+        return has_inserted, message
 
     def split_and_insert_price_range (self, price_range: str, user_id: int, index: int) -> bool:
+        """
+            Split user price range, verify if it's valid and insert
+        """
         min_price, max_price = ( None, None )
         price_range = [
             int(x) for x in price_range.split("-") if price_range.count("-") <= 1 and x.isnumeric()
