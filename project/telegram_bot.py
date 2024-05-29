@@ -52,8 +52,9 @@ class TelegramBot ():
     def __init__ (self, **kwargs) -> None:
         self.database = kwargs.get("database")
         self.vectorizer = kwargs.get("vectorizer")
+        logging.info("Starting bot application")
         self.application = Application.builder().token(config.TELEGRAM_TOKEN).build()
-        logging.warning("Ligando o troço")
+        logging.info("Ligando o troço")
 
         self.metrics_collector = kwargs.get("metrics_collector")
         self.redis_client = kwargs.get("redis_client")
@@ -84,12 +85,17 @@ class TelegramBot ():
 
                     # Later, return for same product
                     CallbackQueryHandler(self.change_blacklist, pattern=f"^CB[0-9]*$"),
+                    CallbackQueryHandler(self.show_price_message, pattern=f"^EP[0-9]*$")
                 ],
                 CHANGING_BLACKLIST: [
                     CallbackQueryHandler(
                         self.confirm_bl_change, pattern=f"^{DEL_BLACKLIST}$|^{RETURN}$"
                     ),
                     MessageHandler(filters.TEXT & ~filters.COMMAND, self.confirm_bl_change)
+                ],
+                PRICING: [
+                    CallbackQueryHandler(self.verify_price, pattern=f"^{SKIP}$"),
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.verify_price)
                 ]
             },
             fallbacks=[
@@ -145,14 +151,13 @@ class TelegramBot ():
     async def enque_message (cls, context: ContextTypes.DEFAULT_TYPE, chat_id: int, text: str):
         try:
             await context.bot.send_message(
-                chat_id=chat_id,
-                text=text,
+                chat_id=chat_id, text=text,
                 parse_mode=ParseMode.MARKDOWN_V2,
                 disable_web_page_preview=False
             )
 
-        except Exception:
-            raise NetworkError("Erro ao enviar mensagem")
+        except Exception as exc:
+            raise NetworkError(f"Failed to send telegram message: {exc}")
 
     async def donation (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         """View the donations method and return"""
@@ -166,7 +171,6 @@ class TelegramBot ():
         button = InlineKeyboardButton(text="Inicio", callback_data=RETURN)
         keyboard = InlineKeyboardMarkup.from_button(button)
 
-        await update.callback_query.answer()
         await update.callback_query.edit_message_text(
             text=donation_text, reply_markup=keyboard, parse_mode=ParseMode.MARKDOWN_V2
         )
@@ -203,15 +207,19 @@ class TelegramBot ():
         return SELECTING_ACTION
 
     async def end_conversation (self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """End conversation, returning to parent state"""
         return SELECTING_ACTION
 
     async def list_wishes (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """ list user wishes if user exists and has wishes, else return an error """
+
         buttons = []
 
         user_id = context._user_id
 
         user_obj = self.database.find_user(user_id)
 
+        # User not exists
         if user_obj is None:
             list_wish_text = "Você ainda não usou os serviços!\n"
 
@@ -219,12 +227,14 @@ class TelegramBot ():
             user_obj = User.from_dict(user_obj)
             wish_list = self.database.user_wishes(user_id, user_obj.name)
 
+            # User exists, but has no wishes
             if len(wish_list) == 0:
                 list_wish_text = (
                     "Você ainda não tem alertas!\n"
                     "Crie alertas na aba 'Adicionar produtos'!"
                 )
 
+            # User exists and has wishes
             else:
                 list_wish_text = "Seus alertas:"
 
@@ -236,13 +246,12 @@ class TelegramBot ():
         buttons.append([InlineKeyboardButton(text="Inicio", callback_data=RETURN)])
         keyboard = InlineKeyboardMarkup(buttons)
 
-        await update.callback_query.answer()
         await update.callback_query.edit_message_text(text=list_wish_text, reply_markup=keyboard)
 
         return LISTING
 
     async def select_category (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        """Add new product"""
+        """Show options for product categories"""
         select_category_text = (
             "Selecione a categoria do produto:\n"
         )
@@ -259,7 +268,6 @@ class TelegramBot ():
 
         keyboard = InlineKeyboardMarkup(buttons)
 
-        await update.callback_query.answer()
         await update.callback_query.edit_message_text(
             text=select_category_text, reply_markup=keyboard
         )
@@ -267,6 +275,7 @@ class TelegramBot ():
         return SELECTING_CATEGORY
 
     async def show_product_msg (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """ Show message alerting that user can write product name"""
         new_product_text = "Escreva abaixo o nome do produto:\n"
 
         # If was coming from "Select Category"
@@ -287,6 +296,7 @@ class TelegramBot ():
         return TYPING
 
     async def verify_save_product (self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """ Verify if user can add new products """
         user_id = update.message.from_user["id"]
         user_name = update.message.from_user["first_name"]
         raw_product_name = update.message.text
@@ -320,6 +330,7 @@ class TelegramBot ():
                 return await self.show_product_msg(update, context)
 
     async def show_price_message (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """ Show message alerting that user can write price for product """
         price_text = (
             "APENAS NUMEROS SEM VIRGULA. Digite '0' ou 'Pular' não quiser limitar o preco\n"
             "(Limites de valores, exemplo: 200-1000 vai pegar de R$ 200 até R$ 1000)\n"
@@ -327,11 +338,20 @@ class TelegramBot ():
         button = InlineKeyboardButton(text="Pular", callback_data=SKIP)
         keyboard = InlineKeyboardMarkup.from_button(button)
 
-        await update.message.reply_text(price_text, reply_markup=keyboard)
+        # Special case when show price are called from state (not directly, as usually)
+        if update.callback_query is not None:
+            context.user_data[INDEX] = int(update.callback_query.data[2:])
+
+        if update.message is not None:
+            await update.message.reply_text(price_text, reply_markup=keyboard)
+
+        else:
+            await update.callback_query.edit_message_text(text=price_text, reply_markup=keyboard)
 
         return PRICING
 
     async def verify_price (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """ Verify if user has inserted an valid price """
         price_range = "0"
         index = context.user_data.get(INDEX) or -1
         user_id = context._user_id
@@ -350,8 +370,8 @@ class TelegramBot ():
             # Return to PRICING
             return await self.show_price_message(update, context)
 
-        # TODO find best way to do this handler dynamic
-        if index == -1: # Case from add new product
+        # if index was -1, are a new product, if was a new product, jumps to ask for add more
+        if index == -1:
             message = "Preço salvo com sucesso!"
             if update.message is not None:
                 await update.message.reply_text(message)
@@ -359,9 +379,15 @@ class TelegramBot ():
             else:
                 await update.callback_query.edit_message_text(message)
 
+            # Jumps to "Want to add more products?" conv
             return await self.ask_for_add_more(update, context)
 
+        # Returns to wish detailing
+        else:
+            return await self.wish_details(update, context)
+
     async def ask_for_add_more (self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """ When user finishes item add pipeline, ask if he wants to restart the pipeline """
         message = "Gostaria de adicionar mais produtos?"
 
         buttons = [ [
@@ -379,9 +405,10 @@ class TelegramBot ():
         return TO_ADD_NEW
 
     async def wish_details (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """ Detail wish selected by user """
         user_id = context._user_id
 
-        # INDEX, when returning from blacklist change or option when comes from wish list
+        # INDEX, when returning from blacklist/price change or option when comes from wish list
         index = context.user_data.get(INDEX)
         if index is None:
             index = int(update.callback_query.data[1:])
@@ -401,7 +428,7 @@ class TelegramBot ():
         buttons = [
             [
                 InlineKeyboardButton(text="Remover", callback_data=f"D{index}"),
-                InlineKeyboardButton(text="Mudar Preço", callback_data=f"E{index}")
+                InlineKeyboardButton(text="Mudar Preço", callback_data=f"EP{index}")
             ],
             [ InlineKeyboardButton(text="Editar Blacklist", callback_data=f"CB{index}") ],
             # [ InlineKeyboardButton(text="Bloquear lojas", callback_data=f"A{index}") ],
@@ -410,12 +437,16 @@ class TelegramBot ():
         ]
         keyboard = InlineKeyboardMarkup(buttons)
 
-        await update.callback_query.answer()
-        await update.callback_query.edit_message_text(text=product_text, reply_markup=keyboard)
+        if update.message is not None:
+            await update.message.reply_text(text=product_text, reply_markup=keyboard)
+
+        else:
+            await update.callback_query.edit_message_text(text=product_text, reply_markup=keyboard)
 
         return DETAILING
 
     async def delete_wish (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """ Delete user selected wish """
         option = update.callback_query.data
 
         self.database.remove_user_wish(context._user_id, int(option[1:]))
@@ -428,6 +459,7 @@ class TelegramBot ():
         return await self.list_wishes(update, context)
 
     async def change_blacklist (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+        """ Change a wish blacklist tags """
         new_product_text = (
             "Escreva abaixo as palavras que vão ser descartadas ao procurar produtos:\n"
         )
@@ -437,31 +469,30 @@ class TelegramBot ():
             InlineKeyboardButton(text="Remover blacklist", callback_data=DEL_BLACKLIST)
         ] ]
 
-        context.user_data[INDEX] = int(update.callback_query.data[2:])
-
         keyboard = InlineKeyboardMarkup(buttons)
+
+        # Set Wish index to memory, because "User typing" can't return regex with index
+        context.user_data[INDEX] = int(update.callback_query.data[2:])
 
         await update.callback_query.edit_message_text(text=new_product_text, reply_markup=keyboard)
 
         return CHANGING_BLACKLIST
 
     async def confirm_bl_change (self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-        option = update.callback_query.data
+        """ Set wish new blacklist, or do nothing if new blacklist are None """
+        new_blacklist = None
 
-        if option != RETURN:
-            # Or update blacklist from message or remove
-            if update.message is not None:
-                blacklist = normalize_str(update.message.text).split(" ")
+        # if message was text
+        if (incoming_msg := update.message) is not None:
+            new_blacklist = normalize_str(incoming_msg.text).split(" ")
 
-                if blacklist == [ "" ]:
-                    blacklist = []
+        # if message was from "Remove Blacklist" Button
+        elif update.callback_query is not None and int(update.callback_query.data) == DEL_BLACKLIST:
+            new_blacklist = []
 
-            else:
-                blacklist = []
-
-            self.database.update_wish_by_index(
-                context._user_id, context.user_data[INDEX], blacklist=blacklist
-            )
+        self.database.update_wish_by_index(
+            context._user_id, context.user_data[INDEX], blacklist=new_blacklist
+        )
 
         # Directly returning for wish detail
         return await self.wish_details(update, context)
@@ -487,6 +518,9 @@ class TelegramBot ():
         return has_inserted, message
 
     def split_and_insert_price_range (self, price_range: str, user_id: int, index: int) -> bool:
+        """
+            Split user price range, verify if it's valid and insert
+        """
         min_price, max_price = ( None, None )
         price_range = [
             int(x) for x in price_range.split("-") if price_range.count("-") <= 1 and x.isnumeric()
