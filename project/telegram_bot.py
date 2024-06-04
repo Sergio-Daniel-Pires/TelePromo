@@ -65,7 +65,8 @@ class TelegramBot ():
             entry_points=[ CallbackQueryHandler(self.donation, pattern=f"^{DONATION}$") ],
             states={ SHOWING: [ CallbackQueryHandler(self.default_options, f"^{RETURN}$") ] },
             fallbacks=[
-                CallbackQueryHandler(self.end_conversation, f"^{SELECTING_ACTION}$")
+                CallbackQueryHandler(self.end_conversation, f"^{SELECTING_ACTION}$"),
+                CommandHandler("start", self.default_options)
             ],
             map_to_parent={ SELECTING_ACTION: SELECTING_ACTION }
         )
@@ -99,7 +100,8 @@ class TelegramBot ():
                 ]
             },
             fallbacks=[
-                CallbackQueryHandler(self.end_conversation, f"^{SELECTING_ACTION}$")
+                CallbackQueryHandler(self.end_conversation, f"^{SELECTING_ACTION}$"),
+                CommandHandler("start", self.default_options)
             ],
             map_to_parent={ SELECTING_ACTION: SELECTING_ACTION }
         )
@@ -130,7 +132,8 @@ class TelegramBot ():
                 ]
             },
             fallbacks=[
-                CallbackQueryHandler(self.end_conversation, f"^{SELECTING_ACTION}$")
+                CallbackQueryHandler(self.end_conversation, f"^{SELECTING_ACTION}$"),
+                CommandHandler("start", self.default_options)
             ],
             map_to_parent={ SELECTING_ACTION: SELECTING_ACTION }
         )
